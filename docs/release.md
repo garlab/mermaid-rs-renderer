@@ -1,77 +1,66 @@
-# Release and crates.io Publish
+# Manual fork releases
 
-This repository publishes binaries and the Rust crate from a version tag.
+This fork publishes the `document-graphics-mermaid` library from `fork-release`.
+Rust imports remain `mermaid_rs_renderer`. The upstream `master` and independent
+`fix/` branches retain upstream package metadata for contribution and syncing.
+The fork version is independent of upstream's version.
 
-## One-time setup
+The inherited release workflow is removed on this branch. Ordinary CI checks
+builds, tests and packages; it does not publish crates, CLI binaries, Homebrew
+formulae or AUR packages. Publishing automation can be added if the fork becomes
+long-lived.
 
-Add the release credentials to GitHub repository secrets:
+## Prepare a release
 
-1. `CARGO_REGISTRY_TOKEN`: a crates.io API token with publish permission.
-2. `HOMEBREW_TAP_TOKEN`: a GitHub token that can push to `1jehuang/homebrew-mmdr`.
-3. `AUR_SSH_KEY`: the private SSH key registered for the `mmdr-bin` AUR package.
+1. Integrate the reviewed fix branches into `fork-release`. Keep the package
+   rename and fork release configuration out of upstream pull requests.
+2. Set the new fork version in `Cargo.toml`. Update the README and crate-level
+   dependency examples, refresh `Cargo.lock`, and record the included fixes.
+3. Run the checks below, commit, and push `fork-release`. Wait for its CI to pass
+   on the supported platforms before publishing.
 
-Add each secret under `Settings -> Secrets and variables -> Actions`. The
-release workflow publishes the crate before updating Homebrew and AUR, so test
-all three credentials before creating a tag.
-
-## Release checklist
-
-1. Update version in `Cargo.toml`.
-2. Update `CHANGELOG.md`.
-3. Run local checks:
-```bash
+```sh
 python3 scripts/check_repo.py
 cargo fmt -- --check
-cargo clippy --all-targets --all-features -- -D warnings
+cargo clippy --locked --all-targets --all-features -- -D warnings
 cargo test --locked --all-features --lib --bins --tests --examples
-cargo test --locked --no-default-features --lib
+cargo test --locked --no-default-features --lib --test embedded_fonts
 cargo test --locked --doc --all-features
+cargo +1.90.0 check --locked --all-targets --all-features
 cargo package --locked
-cargo build --locked --release --features cli
-python3 scripts/hard_gate.py
-cargo publish --dry-run --locked
+cargo package --list --locked
+cargo publish -p document-graphics-mermaid --dry-run --locked
 ```
-4. Commit and push to `master`.
-5. Verify the tree is clean, derive the version from Cargo metadata, then create
-   and push an annotated tag:
-```bash
+
+Inspect the archive's source, tests, fixture license and metadata. Recheck
+document-graphics and its consumers before changing the renderer version.
+Local dependency overrides belong in untracked Cargo configuration.
+
+## Publish from the CLI
+
+Use normal Cargo registry authentication (`cargo login` or a configured
+credential provider). Never commit registry tokens. The crate name must be
+`document-graphics-mermaid`, and its repository metadata must identify this fork.
+
+From the clean, reviewed `fork-release` commit:
+
+```sh
 git diff --exit-code
 git diff --cached --exit-code
+cargo publish -p document-graphics-mermaid --dry-run --locked
+cargo publish -p document-graphics-mermaid --locked
+```
+
+Verify that the expected version is available on crates.io. Tag the exact
+published commit, using the fork's package name to distinguish its releases:
+
+```sh
 version="$(cargo metadata --no-deps --format-version 1 \
-  | python3 -c 'import json, sys; print(json.load(sys.stdin)["packages"][0]["version"])')"
-git tag -a "v${version}" -m "Release v${version}"
-git push origin master "v${version}"
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["packages"][0]["version"])')"
+git tag -a "document-graphics-mermaid-v${version}" -m "Release document-graphics-mermaid ${version}"
+git push origin "document-graphics-mermaid-v${version}"
 ```
 
-## What CI does on tag push
-
-Workflow: `.github/workflows/release.yml`
-
-- Builds release binaries for Linux/macOS/Windows.
-- Uploads assets to GitHub Release.
-- Publishes `mermaid-rs-renderer` to crates.io.
-- Verifies tag version matches `Cargo.toml`.
-- Verifies the tagged commit is reachable from `master` and reruns release gates.
-- Skips publish if that exact crate version already exists.
-- Updates the Homebrew formula for Intel/Arm macOS and Linux.
-- Updates the `mmdr-bin` AUR package.
-
-## Verify publish
-
-```bash
-cargo search mermaid-rs-renderer --limit 1
-cargo info mermaid-rs-renderer
-```
-
-## Manual fallback (if needed)
-
-If CI publish fails but the release commit and dry run are verified, set the
-token only for the current shell and publish the locked dependency graph:
-
-```bash
-read -rsp "crates.io token: " CARGO_REGISTRY_TOKEN && echo
-export CARGO_REGISTRY_TOKEN
-cargo publish --dry-run --locked
-cargo publish --locked
-unset CARGO_REGISTRY_TOKEN
-```
+Then update document-graphics to consume the published fork, remove its embedded
+backend copy, and validate without local overrides before releasing the library.
+Once upstream ships equivalent APIs and fixes, switch back to the upstream crate.

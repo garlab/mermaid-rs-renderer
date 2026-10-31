@@ -35,14 +35,11 @@ def check_markdown_links(errors: list[str]) -> None:
 def check_versions(errors: list[str]) -> None:
     cargo = tomllib.loads(read("Cargo.toml"))
     version = cargo["package"]["version"]
+    package = cargo["package"]["name"]
+    dependency = rf'mermaid-rs-renderer = \{{ package = "{re.escape(package)}", version = "{re.escape(version)}"'
     expected = {
-        "README.md": [
-            rf'mermaid-rs-renderer = "{re.escape(version)}"',
-            rf'mermaid-rs-renderer = \{{ version = "{re.escape(version)}", default-features = false \}}',
-        ],
-        "src/lib.rs": [
-            rf'mermaid-rs-renderer = \{{ version = "{re.escape(version)}", default-features = false \}}'
-        ],
+        "README.md": [dependency + r' \}', dependency + r', default-features = false \}'],
+        "src/lib.rs": [dependency + r', default-features = false \}'],
     }
     for path, patterns in expected.items():
         text = read(path)
@@ -133,7 +130,6 @@ def check_package_metadata(errors: list[str]) -> None:
 
 def check_workflows(errors: list[str]) -> None:
     ci = read(".github/workflows/ci.yml")
-    release = read(".github/workflows/release.yml")
     required_ci = [
         "python3 scripts/check_repo.py",
         "docker://rhysd/actionlint:1.7.12",
@@ -151,26 +147,19 @@ def check_workflows(errors: list[str]) -> None:
     if "cargo test --all-targets --all-features" in ci:
         errors.append(".github/workflows/ci.yml: test command unintentionally includes criterion benches")
 
-    required_release = [
-        "contents: read",
-        "verify-release:",
-        "fetch-depth: 0",
-        "git merge-base --is-ancestor",
-        "cargo build --locked --release --features cli",
-        "cargo publish --dry-run --locked",
-        'case "$status" in',
-        "SHA_LINUX_ARM",
-    ]
-    for item in required_release:
-        if item not in release:
-            errors.append(f".github/workflows/release.yml: missing {item}")
-    build_section = release.split("\n  build:", 1)[-1].split("\n  publish-crate:", 1)[0]
-    if "permissions:\n      contents: write" not in build_section:
-        errors.append(".github/workflows/release.yml: only the release-asset job should receive contents: write")
+    if (ROOT / ".github/workflows/release.yml").exists():
+        errors.append("fork releases are manual; the upstream publishing workflow must be absent")
+    if "permissions:\n  contents: read" not in ci:
+        errors.append(".github/workflows/ci.yml: CI must use read-only repository permissions")
+    if "cargo publish" in ci:
+        errors.append(".github/workflows/ci.yml: ordinary CI must not publish packages")
+    if "${package}-${version}" not in ci:
+        errors.append(".github/workflows/ci.yml: package verification must use Cargo's package name")
     release_docs = read("docs/release.md")
-    for secret in ("CARGO_REGISTRY_TOKEN", "HOMEBREW_TAP_TOKEN", "AUR_SSH_KEY"):
-        if secret not in release_docs:
-            errors.append(f"docs/release.md: missing setup for {secret}")
+    package = tomllib.loads(read("Cargo.toml"))["package"]["name"]
+    for command in (f"cargo publish -p {package} --dry-run --locked", f"cargo publish -p {package} --locked"):
+        if command not in release_docs:
+            errors.append(f"docs/release.md: missing manual release command: {command}")
 
 
 def check_release_generators(errors: list[str]) -> None:

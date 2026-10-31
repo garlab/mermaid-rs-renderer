@@ -1,3 +1,24 @@
+# document-graphics-mermaid
+
+This is the library fork of [mermaid-rs-renderer](https://github.com/1jehuang/mermaid-rs-renderer)
+used by document-graphics. It adds caller-supplied font metrics, complete ER key
+badges, and chart-label contrast fixes. It preserves the upstream MIT license.
+
+The Cargo package is `document-graphics-mermaid`; Rust imports remain
+`mermaid_rs_renderer`. The fork's independent version starts at `0.1.0`, based on
+upstream revision `3726ccbffe0e8032361eb9668694b24f77858060` (whose manifest is `0.3.1`).
+Rust 1.90 or newer is required. Library consumers should disable default features
+to avoid the optional CLI and PNG dependencies.
+
+`master` follows upstream. Each `fix/` branch contains an independent contribution;
+`fork-release` combines them with fork-specific packaging. Publish this crate
+manually using the [release guide](https://github.com/garlab/mermaid-rs-renderer/blob/fork-release/docs/release.md).
+The inherited publishing workflow is removed on this branch; CI remains enabled.
+The upstream CLI installation instructions and benchmark claims below describe
+upstream mmdr, not a separate CLI distribution from this fork.
+
+---
+
 <div align="center">
 
 # mmdr
@@ -378,7 +399,7 @@ Use mmdr as a Rust library in your project:
 
 ```toml
 [dependencies]
-mermaid-rs-renderer = "0.3.1"
+mermaid-rs-renderer = { package = "document-graphics-mermaid", version = "0.1.0" }
 ```
 
 <details>
@@ -388,7 +409,7 @@ For tools like Zola that only need SVG rendering, disable default features to av
 
 ```toml
 [dependencies]
-mermaid-rs-renderer = { version = "0.3.1", default-features = false }
+mermaid-rs-renderer = { package = "document-graphics-mermaid", version = "0.1.0", default-features = false }
 ```
 
 | Feature | Default | Description |
@@ -404,7 +425,7 @@ For unreleased commits only:
 
 ```toml
 [dependencies]
-mermaid-rs-renderer = { git = "https://github.com/1jehuang/mermaid-rs-renderer", rev = "<commit-sha>" }
+mermaid-rs-renderer = { package = "document-graphics-mermaid", git = "https://github.com/garlab/mermaid-rs-renderer", rev = "<commit-sha>", default-features = false }
 ```
 
 ```rust
@@ -510,7 +531,7 @@ python3 scripts/bench_render.py --help  # focused end-to-end PNG benchmark optio
 For a faster optimized development build, use `cargo build --profile release-fast`.
 The regular release profile keeps fat LTO for published binaries.
 
-Release process: see [docs/release.md](https://github.com/1jehuang/mermaid-rs-renderer/blob/master/docs/release.md).
+Release process: see [docs/release.md](https://github.com/garlab/mermaid-rs-renderer/blob/fork-release/docs/release.md).
 
 ## License
 

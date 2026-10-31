@@ -18,7 +18,7 @@
         pkgs = nixpkgs.legacyPackages.${system};
         cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
         mmdr = pkgs.rustPlatform.buildRustPackage {
-          pname = "mermaid-rs-renderer";
+          pname = cargoToml.package.name;
           version = cargoToml.package.version;
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
@@ -37,7 +37,7 @@
           doCheck = false;
           meta = {
             description = "Fast Mermaid diagram renderer in pure Rust - 23 diagram types, 100-1400x faster than mermaid-cli";
-            homepage = "https://github.com/1jehuang/mermaid-rs-renderer";
+            homepage = cargoToml.package.repository;
             license = pkgs.lib.licenses.mit;
             mainProgram = "mmdr";
           };

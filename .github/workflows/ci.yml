@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -38,11 +41,12 @@ jobs:
       - name: Test compile packaged crate
         run: |
           set -euo pipefail
+          package="$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; print(json.load(sys.stdin)["packages"][0]["name"])')"
           version="$(awk -F'\"' '/^version = "/ { print $2; exit }' Cargo.toml)"
           tmpdir="$(mktemp -d)"
-          tar -xzf "target/package/mermaid-rs-renderer-${version}.crate" -C "${tmpdir}"
+          tar -xzf "target/package/${package}-${version}.crate" -C "${tmpdir}"
           cargo test \
-            --manifest-path "${tmpdir}/mermaid-rs-renderer-${version}/Cargo.toml" \
+            --manifest-path "${tmpdir}/${package}-${version}/Cargo.toml" \
             --all-targets \
             --all-features \
             --locked \
@@ -88,3 +92,12 @@ jobs:
         run: cargo build --locked --release --features cli
       - name: Hard-gate (no new geometry violations vs baseline)
         run: python3 scripts/hard_gate.py
+
+  minimum-rust:
+    name: Rust 1.90
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@1.90.0
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --locked --all-targets --all-features

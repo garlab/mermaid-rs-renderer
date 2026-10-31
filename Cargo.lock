@@ -295,6 +295,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be1e0bca6c3637f992fc1cc7cbc52a78c1ef6db076dbf1059c4323d6a2048376"
 
 [[package]]
+name = "document-graphics-mermaid"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "criterion",
+ "fontdb",
+ "json5",
+ "once_cell",
+ "regex",
+ "resvg",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "ttf-parser",
+ "usvg",
+]
+
+[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -479,25 +498,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d1219ed1b7f229ee7104d281dd01d6802fe28bb6e95d292942c4daacdeb798c0"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "mermaid-rs-renderer"
-version = "0.3.1"
-dependencies = [
- "anyhow",
- "clap",
- "criterion",
- "fontdb",
- "json5",
- "once_cell",
- "regex",
- "resvg",
- "serde",
- "serde_json",
- "thiserror",
- "ttf-parser",
- "usvg",
 ]
 
 [[package]]
