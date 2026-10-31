@@ -465,6 +465,19 @@ println!("  Render: {}us", result.render_us);
 
 </details>
 
+### Supplying embedded fonts
+
+`set_font_database(fontdb::Database)` configures the process-wide font database
+used for layout text measurement. Populate it with `Database::load_font_data`
+or binary font sources and set the generic family mappings as needed. Call it
+before rendering; replacing the database clears cached faces and disables system
+font discovery and filesystem font-cache reads and writes for measurement.
+
+SVG output still references font families. Configure the same fonts in your SVG
+renderer. This API does not configure the optional PNG or vector-scene output
+paths, which have their own font-loading behavior. File-backed font sources in a
+supplied database may still perform filesystem reads.
+
 ## Development
 
 ```bash

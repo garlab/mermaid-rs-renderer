@@ -9,7 +9,7 @@ use crate::layout::{
     GitGraphLayout, JourneyLayout, Layout, PieData, SankeyLayout, SubgraphLayout, TextBlock,
 };
 use crate::text_metrics;
-use crate::theme::{Theme, adjust_color, parse_color_to_hsl};
+use crate::theme::{MERMAID_PASTEL_TEXT_COLOR, Theme, adjust_color, parse_color_to_hsl};
 use anyhow::Result;
 use serde::Serialize;
 use std::cmp::Ordering;
@@ -3536,7 +3536,7 @@ fn render_quadrant(
             theme,
             config,
             false,
-            Some("#131300"),
+            Some(theme.text_color.as_str()),
         ));
     }
     if let Some(ref x_right) = layout.x_axis_right {
@@ -3547,7 +3547,7 @@ fn render_quadrant(
             theme,
             config,
             false,
-            Some("#131300"),
+            Some(theme.text_color.as_str()),
         ));
     }
     if let Some(ref y_bottom) = layout.y_axis_bottom {
@@ -3560,7 +3560,7 @@ fn render_quadrant(
             theme,
             config,
             "end",
-            Some("#131300"),
+            Some(theme.text_color.as_str()),
         ));
     }
     if let Some(ref y_top) = layout.y_axis_top {
@@ -3573,7 +3573,7 @@ fn render_quadrant(
             theme,
             config,
             "end",
-            Some("#131300"),
+            Some(theme.text_color.as_str()),
         ));
     }
 
@@ -4073,7 +4073,7 @@ fn render_timeline(
             config,
             theme.font_size,
             text_anchor,
-            Some(theme.primary_text_color.as_str()),
+            Some(MERMAID_PASTEL_TEXT_COLOR),
             Some("bold"),
             true,
         ));
@@ -4094,7 +4094,7 @@ fn render_timeline(
                 config,
                 event_font_size,
                 text_anchor,
-                Some(theme.primary_text_color.as_str()),
+                Some(MERMAID_PASTEL_TEXT_COLOR),
                 true,
             ));
             text_y += evt.lines.len() as f32 * event_line_height;
@@ -4207,7 +4207,7 @@ fn render_journey(layout: &JourneyLayout, theme: &Theme, config: &LayoutConfig) 
                 task.score_y + theme.font_size * 0.35,
                 score_text.as_str(),
                 theme,
-                theme.primary_text_color.as_str(),
+                MERMAID_PASTEL_TEXT_COLOR,
                 "middle",
             ));
         }
@@ -5817,7 +5817,7 @@ fn render_er_node(
         }
         if !attr.keys.is_empty() {
             let mut row_badge_width = 0.0f32;
-            for key in attr.keys.iter().take(2) {
+            for key in &attr.keys {
                 let text_width =
                     text_metrics::measure_text_width(key, font_size * 0.72, &theme.font_family)
                         .unwrap_or(font_size * 0.9);
@@ -5897,7 +5897,7 @@ fn render_er_node(
         }
 
         let mut cursor_x = x + pad_x;
-        for key in attr.keys.iter().take(2) {
+        for key in &attr.keys {
             let fill = match key.as_str() {
                 "PK" => "#1D4ED8",
                 "FK" => "#0F766E",

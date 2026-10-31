@@ -32,6 +32,9 @@ const MERMAID_GIT_TAG_LABEL_COLOR: &str = "#131300";
 const MERMAID_GIT_TAG_LABEL_BG: &str = "#ECECFF";
 const MERMAID_GIT_TAG_LABEL_BORDER: &str = "hsl(240, 60%, 86.2745098039%)";
 const MERMAID_TEXT_COLOR: &str = "#333";
+// Timeline cards and journey score markers use fixed light palettes in every theme.
+// Keep their foreground aligned with Mermaid's other pastel-background labels.
+pub(crate) const MERMAID_PASTEL_TEXT_COLOR: &str = "#131300";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Theme {
