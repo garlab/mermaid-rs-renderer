@@ -282,10 +282,29 @@ pub(super) fn segment_hits_node_shape_interior(
     b: (f32, f32),
     node: &NodeLayout,
 ) -> bool {
+    // Reject disjoint segment bounds before sampling. The padding also covers
+    // the one-unit minimum radius used by very small circular nodes.
+    let min_x = node.x.min(node.x + node.width) - 1.0;
+    let max_x = node.x.max(node.x + node.width) + 1.0;
+    let min_y = node.y.min(node.y + node.height) - 1.0;
+    let max_y = node.y.max(node.y + node.height) + 1.0;
+    if (a.0 < min_x && b.0 < min_x)
+        || (a.0 > max_x && b.0 > max_x)
+        || (a.1 < min_y && b.1 < min_y)
+        || (a.1 > max_y && b.1 > max_y)
+    {
+        return false;
+    }
     let steps = (((b.0 - a.0).hypot(b.1 - a.1) / 4.0).ceil() as usize).max(2);
+    // The shape is constant along the segment; allocate its polygon only once.
+    let polygon = shape_polygon_points(node);
     (1..steps).any(|i| {
         let t = i as f32 / steps as f32;
-        point_inside_node_shape_strict(node, (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t))
+        let point = (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t);
+        match polygon.as_deref() {
+            Some(polygon) => point_in_polygon_strict(point, polygon),
+            None => point_inside_node_shape_strict(node, point),
+        }
     })
 }
 
@@ -524,6 +543,86 @@ mod tests {
             (0.0, 20.0),
             (120.0, 20.0),
             &rect
+        ));
+    }
+
+    #[test]
+    fn segment_checks_preserve_shape_interiors_and_boundaries() {
+        for shape in [
+            NodeShape::Rectangle,
+            NodeShape::ForkJoin,
+            NodeShape::RoundRect,
+            NodeShape::Stadium,
+            NodeShape::Subroutine,
+            NodeShape::Cylinder,
+            NodeShape::ActorBox,
+            NodeShape::Circle,
+            NodeShape::DoubleCircle,
+            NodeShape::Diamond,
+            NodeShape::Hexagon,
+            NodeShape::Parallelogram,
+            NodeShape::ParallelogramAlt,
+            NodeShape::Trapezoid,
+            NodeShape::TrapezoidAlt,
+            NodeShape::Asymmetric,
+            NodeShape::MindmapDefault,
+            NodeShape::Text,
+        ] {
+            let n = node(shape);
+            assert!(
+                segment_hits_node_shape_interior((60.0, 0.0), (60.0, 100.0), &n),
+                "{shape:?}"
+            );
+            assert!(
+                !segment_hits_node_shape_interior((0.0, 20.0), (120.0, 20.0), &n),
+                "{shape:?}"
+            );
+            for (a, b) in [
+                ((-100_000.0, -10.0), (100_000.0, -10.0)),
+                ((-100_000.0, 100.0), (100_000.0, 100.0)),
+                ((-10.0, -100_000.0), (-10.0, 100_000.0)),
+                ((130.0, -100_000.0), (130.0, 100_000.0)),
+            ] {
+                assert!(!segment_hits_node_shape_interior(a, b, &n), "{shape:?}");
+                assert!(!segment_hits_node_shape_interior(b, a, &n), "{shape:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn tiny_circle_hit_test_can_extend_beyond_layout_bounds() {
+        for shape in [NodeShape::Circle, NodeShape::DoubleCircle] {
+            let mut n = node(shape);
+            n.x = 0.0;
+            n.y = 0.0;
+            n.width = 0.25;
+            n.height = 0.25;
+            // The hit-test radius has a one-unit minimum, so this segment
+            // passes through the circle above its nominal layout box.
+            assert!(segment_hits_node_shape_interior(
+                (-1.0, 0.875),
+                (1.25, 0.875),
+                &n
+            ));
+        }
+    }
+
+    #[test]
+    fn segment_checks_keep_the_existing_sampling_interval() {
+        let mut n = node(NodeShape::Rectangle);
+        n.x = 5.0;
+        n.width = 2.0;
+        // Samples are four units apart and miss this narrow interior. A bounds
+        // overlap alone must not replace the existing point-based decision.
+        assert!(!segment_hits_node_shape_interior(
+            (0.0, 50.0),
+            (40.0, 50.0),
+            &n
+        ));
+        assert!(!segment_hits_node_shape_interior(
+            (40.0, 50.0),
+            (0.0, 50.0),
+            &n
         ));
     }
 
