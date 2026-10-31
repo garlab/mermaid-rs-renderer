@@ -5,12 +5,16 @@ used by document-graphics. It adds caller-supplied font metrics, complete ER key
 badges, and chart-label contrast fixes. It preserves the upstream MIT license.
 
 The Cargo package is `document-graphics-mermaid`; Rust imports remain
-`mermaid_rs_renderer`. The fork's independent version starts at `0.1.0`, based on
+`mermaid_rs_renderer`. The fork's current version is `0.1.1`, based on
 upstream revision `3726ccbffe0e8032361eb9668694b24f77858060` (whose manifest is `0.3.1`).
 Rust 1.90 or newer is required. Library consumers should disable default features
 to avoid the optional CLI and PNG dependencies.
 
-`master` follows upstream. Each `fix/` branch contains an independent contribution;
+Version `0.1.1` speeds up flowchart routing by reusing node polygons and skipping
+sampling for clearly disjoint segments. It preserves the existing sampling
+interval and boundary behavior.
+
+`master` follows upstream. Each `fix/` or `perf/` branch contains an independent contribution;
 `fork-release` combines them with fork-specific packaging. Publish this crate
 manually using the [release guide](https://github.com/garlab/mermaid-rs-renderer/blob/fork-release/docs/release.md).
 The inherited publishing workflow is removed on this branch; CI remains enabled.
@@ -399,7 +403,7 @@ Use mmdr as a Rust library in your project:
 
 ```toml
 [dependencies]
-mermaid-rs-renderer = { package = "document-graphics-mermaid", version = "0.1.0" }
+mermaid-rs-renderer = { package = "document-graphics-mermaid", version = "0.1.1" }
 ```
 
 <details>
@@ -409,7 +413,7 @@ For tools like Zola that only need SVG rendering, disable default features to av
 
 ```toml
 [dependencies]
-mermaid-rs-renderer = { package = "document-graphics-mermaid", version = "0.1.0", default-features = false }
+mermaid-rs-renderer = { package = "document-graphics-mermaid", version = "0.1.1", default-features = false }
 ```
 
 | Feature | Default | Description |
@@ -544,7 +548,7 @@ Enable the optional `scene` feature to draw diagrams with a desktop/GPU/vector
 renderer without a bitmap or SVG widget:
 
 ```toml
-mermaid-rs-renderer = { package = "document-graphics-mermaid", version = "0.1.0", default-features = false, features = ["scene"] }
+mermaid-rs-renderer = { package = "document-graphics-mermaid", version = "0.1.1", default-features = false, features = ["scene"] }
 ```
 
 ```rust
