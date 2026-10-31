@@ -38,6 +38,9 @@ exclude = [
     "*.html",
 ]
 
+[package.metadata.docs.rs]
+features = ["scene"]
+
 [lib]
 name = "mermaid_rs_renderer"
 

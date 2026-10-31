@@ -544,7 +544,7 @@ Enable the optional `scene` feature to draw diagrams with a desktop/GPU/vector
 renderer without a bitmap or SVG widget:
 
 ```toml
-mermaid-rs-renderer = { version = "0.3.1", default-features = false, features = ["scene"] }
+mermaid-rs-renderer = { package = "document-graphics-mermaid", version = "0.1.0", default-features = false, features = ["scene"] }
 ```
 
 ```rust
