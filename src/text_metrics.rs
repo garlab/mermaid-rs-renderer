@@ -12,6 +12,28 @@ use crate::unicode_width::{Cluster, consume_cluster, is_cjk_wide_char};
 static TEXT_MEASURER: Lazy<Mutex<TextMeasurer>> = Lazy::new(|| Mutex::new(TextMeasurer::new()));
 const FONT_CACHE_VERSION: &str = "v2-font-family-case";
 
+/// Replace the process-wide database used for layout text measurement.
+///
+/// This clears previously cached faces (including missing-family results) and
+/// disables system-font discovery and filesystem font-cache reads and writes
+/// for text measurement. Call before rendering, rather than while other threads
+/// are rendering, so a diagram uses one consistent set of metrics.
+///
+/// Use [`Database::load_font_data`] or binary font sources for fully embedded
+/// operation. File-backed sources in the supplied database can still read files.
+/// SVG output references font families; it does not embed the font data. The
+/// optional PNG and scene output paths have their own font-loading behavior and
+/// are not configured by this function.
+pub fn set_font_database(database: Database) {
+    let mut measurer = TEXT_MEASURER.lock().unwrap_or_else(|e| e.into_inner());
+    *measurer = TextMeasurer {
+        db: database,
+        loaded_system_fonts: true,
+        embedded_only: true,
+        cache: HashMap::new(),
+    };
+}
+
 pub fn measure_text_width(text: &str, font_size: f32, font_family: &str) -> Option<f32> {
     if text.is_empty() || font_size <= 0.0 {
         return Some(0.0);
@@ -33,6 +55,7 @@ pub fn average_char_width(font_family: &str, font_size: f32) -> Option<f32> {
 struct TextMeasurer {
     db: Database,
     loaded_system_fonts: bool,
+    embedded_only: bool,
     cache: HashMap<String, Option<FontFace>>,
 }
 
@@ -42,6 +65,7 @@ impl TextMeasurer {
         Self {
             db,
             loaded_system_fonts: false,
+            embedded_only: false,
             cache: HashMap::new(),
         }
     }
@@ -65,7 +89,9 @@ impl TextMeasurer {
 
     fn load_face(&mut self, font_family: &str) -> Option<FontFace> {
         let family_key = normalize_family_key(font_family);
-        if let Some(face) = load_cached_face(&family_key) {
+        if !self.embedded_only
+            && let Some(face) = load_cached_face(&family_key)
+        {
             return Some(face);
         }
         if !self.loaded_system_fonts {
@@ -129,7 +155,8 @@ impl TextMeasurer {
             let bytes = data.to_vec();
             if let Ok(face) = Face::parse(&bytes, index) {
                 let units_per_em = face.units_per_em().max(1);
-                if let Some((font_path, meta_path)) = cache_paths(&family_key)
+                if !self.embedded_only
+                    && let Some((font_path, meta_path)) = cache_paths(&family_key)
                     && !font_path.exists()
                 {
                     if let Some(parent) = font_path.parent() {
@@ -320,6 +347,53 @@ mod tests {
     #[test]
     fn measure_empty_text_is_zero() {
         assert_eq!(measure_text_width("", 16.0, "sans-serif"), Some(0.0));
+    }
+
+    #[test]
+    fn supplied_database_bypasses_persisted_font_cache() {
+        if std::env::var_os("MERMAID_DISK_CACHE_TEST_CHILD").is_some() {
+            let family = "Embedded Cache Regression";
+            let key = normalize_family_key(family);
+            let (font_path, meta_path) = cache_paths(&key).unwrap();
+            fs::create_dir_all(font_path.parent().unwrap()).unwrap();
+            let bytes = include_bytes!("../tests/fixtures/fonts/demo.ttf");
+            fs::write(&font_path, bytes).unwrap();
+            fs::write(&meta_path, "0").unwrap();
+            assert!(load_cached_face(&key).is_some(), "seed a valid cached face");
+
+            set_font_database(Database::new());
+            assert_eq!(measure_text_width("A", 16.0, family), None);
+            assert_eq!(fs::read(font_path).unwrap(), bytes);
+            assert_eq!(fs::read_to_string(meta_path).unwrap(), "0");
+            return;
+        }
+
+        // Set the cache directory only in an isolated child, since other unit
+        // tests may measure fonts concurrently in this process.
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let cache =
+            std::env::temp_dir().join(format!("mermaid-disk-cache-{}-{nonce}", std::process::id()));
+        fs::create_dir(&cache).unwrap();
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "text_metrics::tests::supplied_database_bypasses_persisted_font_cache",
+                "--nocapture",
+            ])
+            .env("MERMAID_DISK_CACHE_TEST_CHILD", "1")
+            .env("XDG_CACHE_HOME", &cache)
+            .output()
+            .unwrap();
+        fs::remove_dir_all(cache).unwrap();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
     #[test]

@@ -129,6 +129,7 @@ pub use render::{SvgDimensions, measure_svg_dimensions, render_svg, write_output
 pub use scene::{
     BlendMode, Color, FillRule, GradientStop, Paint, PathCommand, Scene, SceneCommand, render_scene,
 };
+pub use text_metrics::set_font_database;
 pub use theme::Theme;
 
 /// Options for the high-level `render` function.
