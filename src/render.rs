@@ -3536,7 +3536,7 @@ fn render_quadrant(
             theme,
             config,
             false,
-            Some(theme.text_color.as_str()),
+            Some(theme.primary_text_color.as_str()),
         ));
     }
     if let Some(ref x_right) = layout.x_axis_right {
@@ -3547,7 +3547,7 @@ fn render_quadrant(
             theme,
             config,
             false,
-            Some(theme.text_color.as_str()),
+            Some(theme.primary_text_color.as_str()),
         ));
     }
     if let Some(ref y_bottom) = layout.y_axis_bottom {
@@ -3560,7 +3560,7 @@ fn render_quadrant(
             theme,
             config,
             "end",
-            Some(theme.text_color.as_str()),
+            Some(theme.primary_text_color.as_str()),
         ));
     }
     if let Some(ref y_top) = layout.y_axis_top {
@@ -3573,7 +3573,7 @@ fn render_quadrant(
             theme,
             config,
             "end",
-            Some(theme.text_color.as_str()),
+            Some(theme.primary_text_color.as_str()),
         ));
     }
 

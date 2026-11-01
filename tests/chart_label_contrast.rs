@@ -84,7 +84,8 @@ fn quadrant_axes_follow_theme_and_preserve_escaped_multiline_labels() {
             "Fourth &amp; &lt;fifth&gt;",
         ] {
             assert!(
-                text_element(&svg, label).contains(&format!("fill=\"{}\"", theme.text_color)),
+                text_element(&svg, label)
+                    .contains(&format!("fill=\"{}\"", theme.primary_text_color)),
                 "axis label does not follow theme: {label}"
             );
         }
