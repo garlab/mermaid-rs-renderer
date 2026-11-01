@@ -14,6 +14,12 @@ Version `0.1.1` speeds up flowchart routing by reusing node polygons and skippin
 sampling for clearly disjoint segments. It preserves the existing sampling
 interval and boundary behavior.
 
+Unreleased: the main flowchart routing pass now honors the existing bounded
+and linear performance policies, avoiding full route search for large graphs.
+Regression tests cover a styled 384-node tree in both directions, plus a large
+labeled cycle across subgraphs. Node placement and small-graph routing policies
+are unchanged; large-graph edge paths may differ.
+
 `master` follows upstream. Each `fix/` or `perf/` branch contains an independent contribution;
 `fork-release` combines them with fork-specific packaging. Publish this crate
 manually using the [release guide](https://github.com/garlab/mermaid-rs-renderer/blob/fork-release/docs/release.md).
