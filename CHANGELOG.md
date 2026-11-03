@@ -1,5 +1,19 @@
 # Changelog
 
+## document-graphics-mermaid 0.1.3
+
+This fork release includes:
+
+- Faster flowchart route scoring through early rejection of distant segment
+  pairs and fewer temporary node-ID allocations. Search tiers and scoring stay
+  unchanged. The 32-node/60-edge chain benchmark improves from 368.4 to 221.0 ms
+  for layout, with identical SVG output across all 61 benchmark fixtures.
+- Primary text color for quadrant axis labels, preserving contrast when themes
+  use a subdued secondary text color.
+
+The public API, feature defaults, dependencies and Rust 1.90 minimum are unchanged.
+Fork versions are independent of the upstream release history below.
+
 ## v0.3.0 (2026-07-02)
 
 ### Render Size Metadata API

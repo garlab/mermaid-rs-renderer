@@ -61,6 +61,7 @@ git tag -a "document-graphics-mermaid-v${version}" -m "Release document-graphics
 git push origin "document-graphics-mermaid-v${version}"
 ```
 
-Then update document-graphics to consume the published fork, remove its embedded
-backend copy, and validate without local overrides before releasing the library.
+Then update document-graphics to consume the published fork and validate without
+local overrides before releasing the library. Update consuming applications only
+after that library release is available.
 Once upstream ships equivalent APIs and fixes, switch back to the upstream crate.
