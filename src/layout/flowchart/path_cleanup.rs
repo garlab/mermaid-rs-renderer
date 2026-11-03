@@ -7,7 +7,8 @@ use crate::ir::Graph;
 use super::super::NodeLayout;
 use super::super::geometry::{
     endpoint_side_for_point, point_inside_node_shape_strict, segment_hits_node_shape_interior,
-    segment_intrudes_endpoint_rect, source_exits_outward, target_enters_from_outside,
+    segment_intersects_rect_bounds, segment_intrudes_endpoint_rect, source_exits_outward,
+    target_enters_from_outside,
 };
 use super::super::routing::{
     Obstacle, Segment, collinear_overlap_length, compress_path, edge_crossings_with_existing,
@@ -951,15 +952,7 @@ pub(in crate::layout) fn flowchart_path_hits_non_endpoint_nodes(
             {
                 continue;
             }
-            let obstacle = Obstacle {
-                id: node.id.clone(),
-                x: node.x,
-                y: node.y,
-                width: node.width,
-                height: node.height,
-                members: None,
-            };
-            if segment_intersects_rect(a, b, &obstacle) {
+            if segment_intersects_rect_bounds(a, b, (node.x, node.y, node.width, node.height)) {
                 return true;
             }
         }
@@ -985,16 +978,8 @@ fn flowchart_path_non_endpoint_hit_count(
             {
                 continue;
             }
-            let obstacle = Obstacle {
-                id: node.id.clone(),
-                x: node.x,
-                y: node.y,
-                width: node.width,
-                height: node.height,
-                members: None,
-            };
-            if segment_intersects_rect(a, b, &obstacle) {
-                hit_ids.insert(node.id.clone());
+            if segment_intersects_rect_bounds(a, b, (node.x, node.y, node.width, node.height)) {
+                hit_ids.insert(node.id.as_str());
             }
         }
     }

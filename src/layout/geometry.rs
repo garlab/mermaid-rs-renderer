@@ -421,6 +421,15 @@ pub(super) fn segments_intersect(
     c: (f32, f32),
     d: (f32, f32),
 ) -> bool {
+    // Most route segments are far apart. Keep the same endpoint tolerance
+    // as on_segment before evaluating the orientation predicates.
+    if a.0.max(b.0) < c.0.min(d.0) - GEOM_EPS
+        || c.0.max(d.0) < a.0.min(b.0) - GEOM_EPS
+        || a.1.max(b.1) < c.1.min(d.1) - GEOM_EPS
+        || c.1.max(d.1) < a.1.min(b.1) - GEOM_EPS
+    {
+        return false;
+    }
     let o1 = orient(a, b, c);
     let o2 = orient(a, b, d);
     let o3 = orient(c, d, a);
@@ -520,6 +529,28 @@ mod tests {
             hidden: false,
             icon: None,
         }
+    }
+
+    #[test]
+    fn segment_intersections_keep_endpoint_tolerance_and_degenerate_cases() {
+        let a = (0.0, 0.0);
+        let b = (1.0, 0.0);
+        for (c, d, intersects) in [
+            ((0.5, -1.0), (0.5, 1.0), true),
+            ((0.5, 0.0), (2.0, 0.0), true),
+            ((2.0, 0.0), (3.0, 0.0), false),
+            ((1.0 + GEOM_EPS / 2.0, 0.0), (2.0, 0.0), true),
+            ((0.5, GEOM_EPS / 2.0), (0.5, 1.0), true),
+            ((0.5, GEOM_EPS * 2.0), (0.5, 1.0), false),
+            ((0.5, 0.0), (0.5, 0.0), true),
+            ((2.0, 2.0), (2.0, 2.0), false),
+        ] {
+            for (p, q) in [(a, b), (b, a)] {
+                assert_eq!(segments_intersect(p, q, c, d), intersects);
+                assert_eq!(segments_intersect(c, d, p, q), intersects);
+            }
+        }
+        assert!(segments_intersect(a, a, a, a));
     }
 
     #[test]

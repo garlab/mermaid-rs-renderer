@@ -2506,7 +2506,20 @@ fn path_existing_proximity_penalty(
     for segment in points.windows(2) {
         let a1 = segment[0];
         let a2 = segment[1];
+        let min_x = a1.0.min(a2.0) - clearance;
+        let max_x = a1.0.max(a2.0) + clearance;
+        let min_y = a1.1.min(a2.1) - clearance;
+        let max_y = a1.1.max(a2.1) + clearance;
         for &(b1, b2) in existing_segments {
+            // A coordinate gap larger than the clearance also bounds the
+            // Euclidean distance. Only nearby segments need exact distances.
+            if b1.0.max(b2.0) < min_x
+                || b1.0.min(b2.0) > max_x
+                || b1.1.max(b2.1) < min_y
+                || b1.1.min(b2.1) > max_y
+            {
+                continue;
+            }
             let dist = segment_to_segment_distance(a1, a2, b1, b2);
             if dist < clearance {
                 penalty += (clearance - dist) / clearance;
@@ -2788,6 +2801,42 @@ mod tests {
     use super::*;
     use crate::ir::{Direction, NodeShape, NodeStyle};
     use crate::layout::TextBlock;
+
+    #[test]
+    fn proximity_culling_matches_exact_distances_for_mixed_segments() {
+        let path = [
+            (0.0, 0.0),
+            (20.0, 0.0),
+            (20.0, 20.0),
+            (10.0, 10.0),
+            (10.0, 10.0),
+        ];
+        let existing = [
+            ((-50.0, -50.0), (-30.0, -40.0)),
+            ((0.0, 1.0), (10.0, 1.0)),
+            ((5.0, -10.0), (5.0, 10.0)),
+            ((10.0, 10.0), (10.0, 10.0)),
+            ((-10.0, 0.0), (0.0, 0.0)),
+            ((0.0, 5.0), (10.0, 5.0)),
+            ((15.0, 25.0), (25.0, 15.0)),
+            ((100.0, 10.0), (120.0, 10.0)),
+        ];
+        for clearance in [0.25, 1.0, 5.0, 20.0, 100.0] {
+            let mut expected = 0.0;
+            for segment in path.windows(2) {
+                for &(b1, b2) in &existing {
+                    let distance = segment_to_segment_distance(segment[0], segment[1], b1, b2);
+                    if distance < clearance {
+                        expected += (clearance - distance) / clearance;
+                    }
+                }
+            }
+            assert_eq!(
+                path_existing_proximity_penalty(&path, &existing, clearance),
+                expected
+            );
+        }
+    }
 
     fn node(id: &str, x: f32, y: f32, width: f32, height: f32) -> NodeLayout {
         NodeLayout {

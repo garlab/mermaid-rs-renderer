@@ -169,6 +169,33 @@ The implementation uses bounded search tiers so small diagrams get stronger opti
 
 The tier is selected from node count, edge count, label pressure, subgraph count, and configured complexity. This keeps the architecture deterministic and avoids unbounded search.
 
+## Routing comparison cost
+
+Route scoring first rejects pairs with disjoint segment bounds before evaluating
+intersection predicates, retaining the endpoint epsilon. Proximity scoring skips
+pairs whose coordinate gap exceeds the requested clearance before calculating
+four point-to-segment distances. Path cleanup tests node bounds directly and
+borrows node IDs for its hit set, avoiding an allocation for every segment/node
+comparison. These changes retain candidate order, scores, search tiers and pass
+counts; they do not add a spatial index, cache or dependency.
+
+A 2026-11-03 comparison against `e6b3b35` used a 32-node, 60-edge downward chain:
+for each `i` in `0..30`, add `N{i}[Stage {i}] --> N{i+1}` and `N{i} --> N{i+2}`.
+With embedded KaTeX Sans Serif at 16 px, the dark theme and default layout config,
+median `compute_layout_with_metrics` time fell from **368.4 to 221.0 ms**.
+The source was parsed and fonts registered before timing; SVG encoding and
+rasterization are excluded. Seven fresh processes per build followed one warm-up,
+alternating before/after order. Builds used thin LTO and one codegen unit on
+Apple M2 Pro / 16 GiB, macOS 26.4.1, Rust 1.99.0. These are local observations,
+not worst-case bounds.
+
+The chain's SVG remains byte-identical, including 19 crossings, 95 bends and zero
+hard endpoint/node violations. All 61 `benches/fixtures/*.mmd` outputs also match
+byte for byte with the same font database. Endpoint-tolerance and mixed-segment
+proximity regressions pass alongside all 541 unit/integration tests with CLI
+enabled. Native raster consumers pass their worker suites in both themes.
+Raw timing data and generated SVGs remain outside version control.
+
 ## Correctness guarantees and remaining limits
 
 The current guarantee is practical layout correctness for the supported renderer invariants, not mathematical global optimality for every possible graph. Full global optimality for orthogonal graph drawing with obstacles is computationally expensive and can be NP-hard depending on the objective. The implementation therefore uses this policy:
