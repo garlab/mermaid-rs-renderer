@@ -95,6 +95,7 @@ pub mod cli;
 pub mod config;
 mod edge_geometry;
 pub mod error;
+mod gantt;
 pub mod ir;
 pub mod layout;
 pub mod layout_dump;

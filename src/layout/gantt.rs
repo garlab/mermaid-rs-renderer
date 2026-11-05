@@ -10,10 +10,6 @@ fn gantt_palette(theme: &Theme) -> Vec<String> {
     ]
 }
 
-fn hsl_color(h: f32, s: f32, l: f32) -> String {
-    format!("hsl({:.10}, {:.10}%, {:.10}%)", h, s, l)
-}
-
 fn shift_color(color: &str, target_s: f32, target_l: f32, strength: f32) -> String {
     let Some((_h, s, l)) = parse_color_to_hsl(color) else {
         return color.to_string();
@@ -45,106 +41,29 @@ fn gantt_task_color(status: Option<crate::ir::GanttStatus>, base: &str, fallback
     } else {
         fallback.to_string()
     };
-    match status {
-        Some(crate::ir::GanttStatus::Done) => shift_color(&base, 30.0, 80.0, 0.7),
-        Some(crate::ir::GanttStatus::Active) => shift_color(&base, 70.0, 52.0, 0.6),
-        Some(crate::ir::GanttStatus::Crit) => {
-            if let Some((_, s, l)) = parse_color_to_hsl(&base) {
-                hsl_color(0.0, s.max(65.0), l.clamp(45.0, 60.0))
-            } else {
-                "#ef4444".to_string()
-            }
-        }
-        Some(crate::ir::GanttStatus::Milestone) => {
-            if let Some((_, s, l)) = parse_color_to_hsl(&base) {
-                hsl_color(45.0, s.max(65.0), l.clamp(50.0, 65.0))
-            } else {
-                "#f59e0b".to_string()
-            }
-        }
-        None => base,
-    }
-}
-
-fn parse_gantt_duration(value: &str) -> Option<f32> {
-    let value = value.trim();
-    if value.is_empty() {
-        return None;
-    }
-    let mut digits = String::new();
-    let mut unit = None;
-    for ch in value.chars() {
-        if ch.is_ascii_digit() || ch == '.' {
-            digits.push(ch);
-        } else if !ch.is_whitespace() {
-            unit = Some(ch.to_ascii_lowercase());
-        }
-    }
-    let number: f32 = digits.parse().ok()?;
-    let mult = match unit {
-        Some('d') => 1.0,
-        Some('w') => 7.0,
-        Some('h') => 1.0 / 24.0,
-        Some('m') => 30.0,
-        Some('y') => 365.0,
-        _ => 1.0,
+    let status = status.unwrap_or_default();
+    let mut color = if status.critical {
+        "#e25555".to_string()
+    } else if status.milestone {
+        "#dba644".to_string()
+    } else {
+        base
     };
-    Some(number * mult)
-}
-
-fn parse_gantt_date(value: &str) -> Option<i32> {
-    let value = value.trim();
-    if value.is_empty() {
-        return None;
+    if status.done {
+        color = shift_color(&color, 25.0, 70.0, 0.6);
+    } else if status.active {
+        color = shift_color(&color, 70.0, 52.0, 0.6);
     }
-    let parts: Vec<&str> = value.split(['-', '/', '.']).collect();
-    if parts.len() != 3 {
-        return None;
-    }
-    let year: i32 = parts[0].parse().ok()?;
-    let month: u32 = parts[1].parse().ok()?;
-    let day: u32 = parts[2].parse().ok()?;
-    if month == 0 || month > 12 || day == 0 || day > 31 {
-        return None;
-    }
-    Some(days_from_civil(year, month, day))
-}
-
-fn days_from_civil(year: i32, month: u32, day: u32) -> i32 {
-    let y = year - (month <= 2) as i32;
-    let era = if y >= 0 { y } else { y - 399 } / 400;
-    let yoe = y - era * 400;
-    let m = month as i32;
-    let d = day as i32;
-    let doy = (153 * (m + if m > 2 { -3 } else { 9 }) + 2) / 5 + d - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    era * 146097 + doe - 719468
-}
-
-fn civil_from_days(days: i32) -> (i32, u32, u32) {
-    let z = days + 719468;
-    let era = if z >= 0 { z } else { z - 146096 } / 146097;
-    let doe = z - era * 146097;
-    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = mp + if mp < 10 { 3 } else { -9 };
-    let year = y + (m <= 2) as i32;
-    (year, m as u32, d as u32)
-}
-
-fn format_gantt_date(days: i32) -> String {
-    let (year, month, day) = civil_from_days(days);
-    format!("{:04}-{:02}-{:02}", year, month, day)
+    color
 }
 
 pub(super) fn compute_gantt_layout(graph: &Graph, theme: &Theme, config: &LayoutConfig) -> Layout {
     let padding = theme.font_size * 1.25;
-    let row_height = (theme.font_size * 1.5).max(theme.font_size + 8.0);
+    let mut row_height = (theme.font_size * 1.5).max(theme.font_size + 8.0);
     let label_gap = theme.font_size * 1.05;
-    let default_duration = 3.0_f32;
+    let Ok(schedule) = crate::gantt::schedule(graph) else {
+        return super::error::compute_error_layout(graph, config);
+    };
 
     let title = graph
         .gantt_title
@@ -157,9 +76,11 @@ pub(super) fn compute_gantt_layout(graph: &Graph, theme: &Theme, config: &Layout
     for task in &graph.gantt_tasks {
         let label = measure_label(&task.label, theme, config);
         task_label_width = task_label_width.max(label.width);
+        row_height = row_height.max(label.height + 8.0);
         if let Some(section) = task.section.as_ref() {
             let section_label = measure_label(section, theme, config);
             section_label_width = section_label_width.max(section_label.width);
+            row_height = row_height.max(section_label.height + 8.0);
         }
     }
     task_label_width = task_label_width.max(theme.font_size * 6.5);
@@ -173,83 +94,46 @@ pub(super) fn compute_gantt_layout(graph: &Graph, theme: &Theme, config: &Layout
     let label_width = section_label_width + section_task_gap + task_label_width;
     let section_label_x = label_x;
     let task_label_x = label_x + section_label_width + section_task_gap;
-    let chart_x = padding + label_width + label_gap;
     let chart_y = title_height + padding;
-    let chart_width = theme.font_size * 26.0;
+    let chart_width =
+        (theme.font_size * 26.0).max(title.as_ref().map_or(0.0, |t| t.width + padding * 2.0));
 
-    let mut parsed_starts: HashMap<String, f32> = HashMap::new();
-    let mut origin: Option<f32> = None;
-    for task in &graph.gantt_tasks {
-        if let Some(start) = task.start.as_deref().and_then(parse_gantt_date) {
-            let start = start as f32;
-            parsed_starts.insert(task.id.clone(), start);
-            origin = Some(origin.map_or(start, |v| v.min(start)));
-        }
-    }
-    let has_dates = origin.is_some();
-
-    let mut timing: HashMap<String, (f32, f32)> = HashMap::new();
-    let mut cursor = 0.0_f32;
-    let mut time_start = f32::MAX;
-    let mut time_end = f32::MIN;
-
-    let mut computed: Vec<(
-        String,
-        f32,
-        f32,
-        Option<crate::ir::GanttStatus>,
-        Option<String>,
-    )> = Vec::with_capacity(graph.gantt_tasks.len());
-    for task in &graph.gantt_tasks {
-        let duration = task
-            .duration
-            .as_deref()
-            .and_then(parse_gantt_duration)
-            .unwrap_or(default_duration)
-            .max(0.1);
-        let mut start = parsed_starts.get(&task.id).copied();
-        if start.is_none()
-            && let Some(after_id) = task.after.as_deref()
-            && let Some((_, end)) = timing.get(after_id)
-        {
-            start = Some(*end);
-        }
-        let fallback_base = origin.unwrap_or(0.0);
-        let start = start.unwrap_or(fallback_base + cursor);
-        let end = start + duration;
-        timing.insert(task.id.clone(), (start, end));
-        cursor = cursor.max(end + 0.5);
-        time_start = time_start.min(start);
-        time_end = time_end.max(end);
-        computed.push((
-            task.label.clone(),
-            start,
-            duration,
-            task.status,
-            task.section.clone(),
-        ));
-    }
-    if !time_start.is_finite() || !time_end.is_finite() {
-        time_start = 0.0;
-        time_end = 1.0;
-    }
-    if (time_end - time_start).abs() < 0.01 {
-        time_end = time_start + 1.0;
-    }
-    let time_span = (time_end - time_start).max(1.0);
-    let time_scale = chart_width / time_span;
-
-    let mut ticks: Vec<GanttTick> = Vec::new();
-    let tick_count = 4;
-    for i in 0..=tick_count {
-        let t = time_start + time_span * (i as f32) / (tick_count as f32);
-        let x = chart_x + (t - time_start) * time_scale;
-        let label = if has_dates {
-            format_gantt_date(t.round() as i32)
-        } else {
-            format!("{:.0}", t - time_start)
+    let time_start = schedule.iter().map(|t| t.start).min().unwrap() as f32;
+    let time_end = schedule.iter().map(|t| t.end).max().unwrap() as f32;
+    let time_end = time_end.max(time_start + 1.0);
+    let time_span = time_end - time_start;
+    let axis_format = graph.gantt_axis_format.as_deref().unwrap_or("%Y-%m-%d");
+    let tick_font = theme.font_size * 0.8;
+    let mut max_tick_width = 0.0_f32;
+    // Measure the candidate labels before choosing tick density. Long date
+    // formats should reduce tick count instead of overlapping their neighbors.
+    for i in 0..=4 {
+        let day = (time_start + time_span * i as f32 / 4.0).round() as i32;
+        let Ok(label) = crate::gantt::format_date(day, axis_format) else {
+            return super::error::compute_error_layout(graph, config);
         };
-        ticks.push(GanttTick { x, label });
+        max_tick_width = max_tick_width.max(
+            measure_label_with_font_size(&label, tick_font, config, false, &theme.font_family)
+                .width,
+        );
+    }
+    let chart_width = chart_width.max(max_tick_width + padding);
+    let chart_x = (padding + label_width + label_gap).max(max_tick_width / 2.0 + padding);
+    let time_scale = chart_width / time_span;
+    let tick_count = ((chart_width / (max_tick_width + padding)).floor() as i32)
+        .clamp(1, 4)
+        .min(time_span as i32)
+        .max(1);
+    let mut ticks = Vec::new();
+    for i in 0..=tick_count {
+        let day = (time_start + time_span * i as f32 / tick_count as f32).round() as i32;
+        let Ok(label) = crate::gantt::format_date(day, axis_format) else {
+            return super::error::compute_error_layout(graph, config);
+        };
+        ticks.push(GanttTick {
+            x: chart_x + (day as f32 - time_start) * time_scale,
+            label,
+        });
     }
 
     let compact = graph
@@ -270,7 +154,11 @@ pub(super) fn compute_gantt_layout(graph: &Graph, theme: &Theme, config: &Layout
     // Each lane is y_position, end_time
     let mut lanes: Vec<(f32, f32)> = Vec::new();
 
-    for (idx, (label, start, duration, status, section)) in computed.iter().enumerate() {
+    for (idx, task) in graph.gantt_tasks.iter().enumerate() {
+        let timing = schedule[idx];
+        let (label, status, section) = (&task.label, task.status, &task.section);
+        let start = timing.start as f32;
+        let duration = (timing.end - timing.start) as f32;
         if section != &current_section {
             if let Some(sec) = section.as_ref() {
                 if let Some(prev_idx) = current_section_idx {
@@ -300,12 +188,13 @@ pub(super) fn compute_gantt_layout(graph: &Graph, theme: &Theme, config: &Layout
             current_section = section.clone();
         }
 
-        let bar_x = chart_x + (start - time_start) * time_scale;
-        let mut bar_width = duration * time_scale;
-        let min_width = row_height * 0.5;
-        if bar_width < min_width {
-            bar_width = min_width;
-        }
+        let milestone_offset = if status.is_some_and(|s| s.milestone) {
+            duration / 2.0
+        } else {
+            0.0
+        };
+        let bar_x = chart_x + (start + milestone_offset - time_start) * time_scale;
+        let bar_width = ((timing.render_end - timing.start) as f32 * time_scale).max(1.0);
         let base_color = if let Some(sec) = section.as_ref() {
             section_palette
                 .get(sec)
@@ -314,11 +203,11 @@ pub(super) fn compute_gantt_layout(graph: &Graph, theme: &Theme, config: &Layout
         } else {
             palette[idx % palette.len()].clone()
         };
-        let color = gantt_task_color(*status, &base_color, &palette[0]);
+        let color = gantt_task_color(status, &base_color, &palette[0]);
 
         let task_end = start + duration;
         let task_y = if compact {
-            if let Some(lane) = lanes.iter_mut().find(|(_, end)| *start >= *end) {
+            if let Some(lane) = lanes.iter_mut().find(|(_, end)| start >= *end) {
                 let ly = lane.0;
                 lane.1 = task_end;
                 ly
@@ -341,9 +230,9 @@ pub(super) fn compute_gantt_layout(graph: &Graph, theme: &Theme, config: &Layout
             width: bar_width,
             height: row_height,
             color,
-            start: *start,
-            duration: *duration,
-            status: *status,
+            start,
+            duration,
+            status,
         });
     }
     if let Some(prev_idx) = current_section_idx {
@@ -351,7 +240,6 @@ pub(super) fn compute_gantt_layout(graph: &Graph, theme: &Theme, config: &Layout
         sections[prev_idx].height = height;
     }
 
-    let tick_font = theme.font_size * 0.8;
     let max_tick_half_width = ticks
         .iter()
         .map(|tick| {
@@ -441,6 +329,7 @@ mod tests {
             label: id.to_string(),
             start: Some(start.to_string()),
             duration: Some(dur.to_string()),
+            end: None,
             after: None,
             section: Some(section.to_string()),
             status: None,
@@ -453,9 +342,13 @@ mod tests {
             label: id.to_string(),
             start: Some(start.to_string()),
             duration: Some("0d".to_string()),
+            end: None,
             after: None,
             section: Some(section.to_string()),
-            status: Some(GanttStatus::Milestone),
+            status: Some(GanttStatus {
+                milestone: true,
+                ..Default::default()
+            }),
         }
     }
 

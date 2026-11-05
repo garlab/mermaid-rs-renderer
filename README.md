@@ -2,10 +2,10 @@
 
 This is the library fork of [mermaid-rs-renderer](https://github.com/1jehuang/mermaid-rs-renderer)
 used by document-graphics. It adds caller-supplied font metrics, complete ER key
-badges, and chart-label contrast fixes. It preserves the upstream MIT license.
+badges, chart-label contrast fixes and validated day-based Gantt schedules. It preserves the upstream MIT license.
 
 The Cargo package is `document-graphics-mermaid`; Rust imports remain
-`mermaid_rs_renderer`. The fork's current version is `0.1.3`, based on
+`mermaid_rs_renderer`. The fork's current version is `0.2.0`, based on
 upstream revision `3726ccbffe0e8032361eb9668694b24f77858060` (whose manifest is `0.3.1`).
 Rust 1.90 or newer is required. Library consumers should disable default features
 to avoid the optional CLI and PNG dependencies.
@@ -24,6 +24,12 @@ Version `0.1.3` reduces repeated segment comparisons and allocations during
 flowchart routing without changing search policies or route quality. It also
 uses the primary text color for quadrant axis labels, improving contrast in
 custom themes. See the [routing measurements](https://github.com/garlab/mermaid-rs-renderer/blob/fork-release/docs/flowchart-routing-architecture.md#routing-comparison-cost).
+
+Version `0.2.0` updates the public Gantt IR and validates Gantt dates and dependencies, adds calendar durations
+and weekend/holiday exclusions, preserves combined task tags, and improves
+label/grid layout. Unsupported scheduling syntax returns an error. See the
+[native Gantt contract](https://github.com/garlab/mermaid-rs-renderer/blob/fork-release/docs/gantt.md),
+including the changes for callers constructing Gantt IR structs directly.
 
 `master` follows upstream. Each `fix/` or `perf/` branch contains an independent contribution;
 `fork-release` combines them with fork-specific packaging. Publish this crate

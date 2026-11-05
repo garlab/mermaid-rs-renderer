@@ -93,12 +93,13 @@ pub struct QuadrantPoint {
     pub y: f32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GanttStatus {
-    Done,
-    Active,
-    Crit,
-    Milestone,
+/// Independent task tags: critical tasks and milestones may also be done/active.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct GanttStatus {
+    pub done: bool,
+    pub active: bool,
+    pub critical: bool,
+    pub milestone: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -118,6 +119,7 @@ pub struct GanttTask {
     pub label: String,
     pub start: Option<String>,
     pub duration: Option<String>,
+    pub end: Option<String>,
     pub after: Option<String>,
     pub section: Option<String>,
     pub status: Option<GanttStatus>,
@@ -447,6 +449,9 @@ pub struct Graph {
     pub gantt_title: Option<String>,
     pub gantt_sections: Vec<String>,
     pub gantt_display_mode: Option<String>,
+    pub gantt_axis_format: Option<String>,
+    pub gantt_excludes_weekends: bool,
+    pub gantt_excluded_dates: Vec<String>,
     pub journey_title: Option<String>,
     pub radar: RadarData,
     pub gitgraph: GitGraphData,
@@ -639,6 +644,9 @@ impl Graph {
             gantt_title: None,
             gantt_sections: Vec::new(),
             gantt_display_mode: None,
+            gantt_axis_format: None,
+            gantt_excludes_weekends: false,
+            gantt_excluded_dates: Vec::new(),
             journey_title: None,
             radar: RadarData::default(),
             gitgraph: GitGraphData::default(),

@@ -3628,8 +3628,8 @@ fn render_gantt(
     let tick_font = theme.font_size * 0.8;
     for tick in &layout.ticks {
         svg.push_str(&format!(
-            "<line x1=\"{:.2}\" y1=\"{:.2}\" x2=\"{:.2}\" y2=\"{:.2}\" stroke=\"#E2E8F0\" stroke-width=\"1\"/>",
-            tick.x, layout.chart_y, tick.x, layout.chart_y + layout.chart_height
+            "<line x1=\"{:.2}\" y1=\"{:.2}\" x2=\"{:.2}\" y2=\"{:.2}\" stroke=\"{}\" stroke-opacity=\"0.25\" stroke-width=\"1\"/>",
+            tick.x, layout.chart_y, tick.x, layout.chart_y + layout.chart_height, theme.line_color
         ));
         if !tick.label.trim().is_empty() {
             svg.push_str(&text_line_svg_with_font_size(
@@ -3652,16 +3652,17 @@ fn render_gantt(
         theme.line_color
     ));
     svg.push_str(&format!(
-        "<line x1=\"{:.2}\" y1=\"{:.2}\" x2=\"{:.2}\" y2=\"{:.2}\" stroke=\"#E2E8F0\" stroke-width=\"1\"/>",
+        "<line x1=\"{:.2}\" y1=\"{:.2}\" x2=\"{:.2}\" y2=\"{:.2}\" stroke=\"{}\" stroke-opacity=\"0.25\" stroke-width=\"1\"/>",
         chart_left,
         layout.chart_y,
         chart_left,
-        layout.chart_y + layout.chart_height
+        layout.chart_y + layout.chart_height,
+        theme.line_color
     ));
 
     // Draw sections
-    let section_font = theme.font_size * 0.9;
-    let task_font = theme.font_size * 0.85;
+    let section_font = theme.font_size;
+    let task_font = theme.font_size;
     for section in &layout.sections {
         let label_band_width = layout.chart_x;
         svg.push_str(&format!(
@@ -3717,8 +3718,8 @@ fn render_gantt(
     row_lines.dedup_by(|a, b| (*a - *b).abs() < 0.5);
     for y in row_lines {
         svg.push_str(&format!(
-            "<line x1=\"{:.2}\" y1=\"{:.2}\" x2=\"{:.2}\" y2=\"{:.2}\" stroke=\"#E2E8F0\" stroke-width=\"1\"/>",
-            0.0, y, full_width, y
+            "<line x1=\"{:.2}\" y1=\"{:.2}\" x2=\"{:.2}\" y2=\"{:.2}\" stroke=\"{}\" stroke-opacity=\"0.25\" stroke-width=\"1\"/>",
+            0.0, y, full_width, y, theme.line_color
         ));
     }
 
@@ -3736,10 +3737,15 @@ fn render_gantt(
 
     // Draw tasks as bars
     for task in &layout.tasks {
+        let border = if task.status.is_some_and(|s| s.critical) {
+            "#e25555"
+        } else {
+            &theme.primary_border_color
+        };
         let row_center = task.y + layout.row_height / 2.0;
         let bar_y = row_center - bar_height / 2.0;
         let mut label_rendered_inside = false;
-        if matches!(task.status, Some(crate::ir::GanttStatus::Milestone)) {
+        if task.status.is_some_and(|s| s.milestone) {
             let size = bar_height * 0.6;
             let cx = task.x;
             let cy = row_center;
@@ -3756,7 +3762,7 @@ fn render_gantt(
             );
             svg.push_str(&format!(
                 "<polygon points=\"{}\" fill=\"{}\" stroke=\"{}\" stroke-width=\"1\"/>",
-                points, task.color, theme.primary_border_color
+                points, task.color, border
             ));
         } else {
             svg.push_str(&format!(
@@ -3766,7 +3772,7 @@ fn render_gantt(
                 task.width,
                 bar_height,
                 task.color,
-                theme.primary_border_color
+                border
             ));
             let label_text = task
                 .label
@@ -3775,7 +3781,9 @@ fn render_gantt(
                 .find(|line| !line.trim().is_empty())
                 .map(|s| s.as_str())
                 .unwrap_or("");
-            if !label_text.is_empty() {
+            // Wrapped labels belong in the label column. Drawing only their
+            // first line inside a wide bar would silently drop the rest.
+            if task.label.lines.len() == 1 && !label_text.is_empty() {
                 let font_size = task_font * 0.95;
                 let text_width = text_metrics::measure_text_width(
                     label_text,
@@ -3806,7 +3814,7 @@ fn render_gantt(
             // overlapping labels when multiple tasks share a row.
             let (label_x, anchor) = if layout.compact {
                 let gap = theme.font_size * 0.4;
-                if matches!(task.status, Some(crate::ir::GanttStatus::Milestone)) {
+                if task.status.is_some_and(|s| s.milestone) {
                     let size = bar_height * 0.6;
                     (task.x + size + gap, "start")
                 } else {
