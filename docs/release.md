@@ -37,6 +37,17 @@ and AUR distribution remain upstream concerns.
 5. Enable Actions for the fork and confirm branch CI passes on `main` before
    pushing a release tag.
 
+## Version 0.2.1
+
+This patch release updates the package's repository and homepage URLs to
+`garlab/document-graphics-mermaid` and is the first release prepared for the
+GitHub Actions workflow. It changes packaging and release automation only:
+rendering code, public APIs, dependencies and resource limits match 0.2.0.
+
+The workflow validates the tag against Cargo metadata and `main`, runs the full
+CI suite, then authenticates through crates.io Trusted Publishing. Existing
+versions are skipped; failed registry lookups stop publication.
+
 ## Version 0.2.0
 
 This release adds validated native Gantt scheduling: Gregorian dates, clock and
