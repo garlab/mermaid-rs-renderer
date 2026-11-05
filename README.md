@@ -2,7 +2,8 @@
 
 This is the library fork of [mermaid-rs-renderer](https://github.com/1jehuang/mermaid-rs-renderer)
 used by document-graphics. It adds caller-supplied font metrics, complete ER key
-badges, chart-label contrast fixes and validated day-based Gantt schedules. It preserves the upstream MIT license.
+badges, chart-label contrast fixes and validated Gantt schedules with millisecond
+precision. It preserves the upstream MIT license.
 
 The Cargo package is `document-graphics-mermaid`; Rust imports remain
 `mermaid_rs_renderer`. The fork's current version is `0.2.0`, based on
@@ -26,7 +27,8 @@ uses the primary text color for quadrant axis labels, improving contrast in
 custom themes. See the [routing measurements](https://github.com/garlab/mermaid-rs-renderer/blob/fork-release/docs/flowchart-routing-architecture.md#routing-comparison-cost).
 
 Version `0.2.0` updates the public Gantt IR and validates Gantt dates and dependencies, adds calendar durations
-and weekend/holiday exclusions, preserves combined task tags, and improves
+and weekend/holiday exclusions, supports clock and date-time formats down to
+milliseconds, preserves combined task tags, and improves
 label/grid layout. Unsupported scheduling syntax returns an error. See the
 [native Gantt contract](https://github.com/garlab/mermaid-rs-renderer/blob/fork-release/docs/gantt.md),
 including the changes for callers constructing Gantt IR structs directly.
@@ -420,7 +422,7 @@ Use mmdr as a Rust library in your project:
 
 ```toml
 [dependencies]
-mermaid-rs-renderer = { package = "document-graphics-mermaid", version = "0.1.3" }
+mermaid-rs-renderer = { package = "document-graphics-mermaid", version = "0.2.0" }
 ```
 
 <details>
@@ -430,7 +432,7 @@ For tools like Zola that only need SVG rendering, disable default features to av
 
 ```toml
 [dependencies]
-mermaid-rs-renderer = { package = "document-graphics-mermaid", version = "0.1.3", default-features = false }
+mermaid-rs-renderer = { package = "document-graphics-mermaid", version = "0.2.0", default-features = false }
 ```
 
 | Feature | Default | Description |
@@ -565,7 +567,7 @@ Enable the optional `scene` feature to draw diagrams with a desktop/GPU/vector
 renderer without a bitmap or SVG widget:
 
 ```toml
-mermaid-rs-renderer = { package = "document-graphics-mermaid", version = "0.1.3", default-features = false, features = ["scene"] }
+mermaid-rs-renderer = { package = "document-graphics-mermaid", version = "0.2.0", default-features = false, features = ["scene"] }
 ```
 
 ```rust

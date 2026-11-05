@@ -1,5 +1,5 @@
-//! Calendar and dependency calculations for the native, day-based Gantt subset.
-//! Integer civil days keep the result independent of timezone, DST and the clock.
+//! Calendar and dependency calculations for native Gantt charts.
+//! Integer milliseconds preserve short intervals independently of timezone and clock.
 
 use std::collections::{BTreeSet, HashMap, VecDeque};
 
@@ -7,130 +7,19 @@ use anyhow::{Result, bail, ensure};
 
 use crate::ir::Graph;
 
+pub(crate) mod time;
+use time::{DAY, DateFormat, MAX_SPAN_MS, duration_end, parse_date};
+
 pub(crate) const MAX_TASKS: usize = 512;
 pub(crate) const MAX_SPAN: i32 = 36_600;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct Timing {
-    pub start: i32,
-    pub end: i32,
+    pub start: i64,
+    pub end: i64,
     // Mermaid trims trailing excluded days from the visible bar, while the
     // dependency still starts on the next included day.
-    pub render_end: i32,
-}
-
-pub(crate) fn parse_date(value: &str) -> Result<i32> {
-    let bytes = value.as_bytes();
-    ensure!(
-        bytes.len() == 10
-            && bytes[4] == b'-'
-            && bytes[7] == b'-'
-            && bytes
-                .iter()
-                .enumerate()
-                .all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit()),
-        "Gantt dates must use YYYY-MM-DD"
-    );
-    let year: i32 = value[..4].parse()?;
-    let month: u32 = value[5..7].parse()?;
-    let day: u32 = value[8..].parse()?;
-    ensure!(
-        (1..=9999).contains(&year)
-            && (1..=12).contains(&month)
-            && (1..=month_days(year, month)).contains(&day),
-        "invalid Gantt date: {value}"
-    );
-    Ok(days_from_civil(year, month, day))
-}
-
-fn month_days(year: i32, month: u32) -> u32 {
-    match month {
-        2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
-        2 => 28,
-        4 | 6 | 9 | 11 => 30,
-        _ => 31,
-    }
-}
-
-fn days_from_civil(year: i32, month: u32, day: u32) -> i32 {
-    let y = year - i32::from(month <= 2);
-    let era = y.div_euclid(400);
-    let yoe = y - era * 400;
-    let m = month as i32;
-    let doy = (153 * (m + if m > 2 { -3 } else { 9 }) + 2) / 5 + day as i32 - 1;
-    era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468
-}
-
-fn civil_from_days(days: i32) -> (i32, u32, u32) {
-    let z = days + 719468;
-    let era = z.div_euclid(146097);
-    let doe = z - era * 146097;
-    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = mp + if mp < 10 { 3 } else { -9 };
-    (y + i32::from(m <= 2), m as u32, d as u32)
-}
-
-pub(crate) fn format_date(days: i32, format: &str) -> Result<String> {
-    ensure!(format.len() <= 128, "Gantt axis format is too long");
-    let (y, m, d) = civil_from_days(days);
-    let months = [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-    ];
-    let mut output = String::new();
-    let mut chars = format.chars();
-    while let Some(c) = chars.next() {
-        if c != '%' {
-            output.push(c);
-            continue;
-        }
-        match chars.next() {
-            Some('Y') => output.push_str(&format!("{y:04}")),
-            Some('y') => output.push_str(&format!("{:02}", y % 100)),
-            Some('m') => output.push_str(&format!("{m:02}")),
-            Some('d') => output.push_str(&format!("{d:02}")),
-            Some('e') => output.push_str(&format!("{d:2}")),
-            Some('b') => output.push_str(months[m as usize - 1]),
-            Some('%') => output.push('%'),
-            _ => bail!("unsupported Gantt axis format"),
-        }
-    }
-    Ok(output)
-}
-
-// Only integral calendar units are accepted. In particular, `m` is minutes,
-// never months; sub-day and fractional durations must not silently change dates.
-fn duration_end(start: i32, duration: &str) -> Result<i32> {
-    let split = duration
-        .len()
-        .checked_sub(1)
-        .ok_or_else(|| anyhow::anyhow!("missing Gantt duration"))?;
-    ensure!(duration.is_ascii(), "invalid Gantt duration");
-    let (digits, unit) = duration.split_at(split);
-    ensure!(
-        !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()),
-        "unsupported Gantt duration"
-    );
-    let amount: i32 = digits.parse()?;
-    ensure!(amount <= MAX_SPAN, "Gantt duration exceeds limit");
-    let end = match unit {
-        "d" => start + amount,
-        "w" => start + amount * 7,
-        "M" | "y" => {
-            let (y, m, d) = civil_from_days(start);
-            let months = y * 12 + m as i32 - 1 + amount * if unit == "y" { 12 } else { 1 };
-            let year = months / 12;
-            let month = (months % 12 + 1) as u32;
-            ensure!(year <= 9999, "Gantt date exceeds limit");
-            days_from_civil(year, month, d.min(month_days(year, month)))
-        }
-        _ => bail!("Gantt supports integral d, w, M and y durations"),
-    };
-    ensure!(end - start <= MAX_SPAN, "Gantt duration exceeds limit");
-    Ok(end)
+    pub render_end: i64,
 }
 
 struct Calendar {
@@ -139,6 +28,23 @@ struct Calendar {
 }
 
 impl Calendar {
+    fn extend_timestamp(&self, start: i64, nominal_end: i64) -> Result<(i64, i64)> {
+        let duration = nominal_end - start;
+        ensure!(
+            (0..=MAX_SPAN_MS).contains(&duration),
+            "Gantt duration exceeds span limit"
+        );
+        let day = start.div_euclid(DAY) as i32;
+        // The reference renderer checks excluded dates at whole-day offsets
+        // from the start's clock time. Preserve its fractional-day remainder.
+        let (end, render_end) = self.extend(day, day + (duration / DAY) as i32)?;
+        let remainder = duration % DAY;
+        Ok((
+            start + i64::from(end - day) * DAY + remainder,
+            start + i64::from(render_end - day) * DAY + remainder,
+        ))
+    }
+
     fn weekend(day: i32) -> bool {
         (day + 3).rem_euclid(7) >= 5 // 1970-01-01 was Thursday.
     }
@@ -193,6 +99,15 @@ impl Calendar {
 }
 
 pub(crate) fn schedule(graph: &Graph) -> Result<Vec<Timing>> {
+    let format = DateFormat::parse(graph.gantt_date_format.as_deref().unwrap_or("YYYY-MM-DD"))?;
+    if let Some(axis) = &graph.gantt_axis_format {
+        time::format_timestamp(0, axis, format.has_date())?;
+    }
+    ensure!(
+        format.has_date()
+            || (!graph.gantt_excludes_weekends && graph.gantt_excluded_dates.is_empty()),
+        "calendar exclusions need dated Gantt tasks"
+    );
     let tasks = &graph.gantt_tasks;
     ensure!(
         !tasks.is_empty() && tasks.len() <= MAX_TASKS,
@@ -258,7 +173,7 @@ pub(crate) fn schedule(graph: &Graph) -> Result<Vec<Timing>> {
     while let Some(i) = ready.pop_front() {
         let task = &tasks[i];
         let start = match &task.start {
-            Some(date) => parse_date(date)?,
+            Some(date) => format.timestamp(date)?,
             None => dependencies[i]
                 .iter()
                 .map(|&d| timings[d].end)
@@ -267,14 +182,15 @@ pub(crate) fn schedule(graph: &Graph) -> Result<Vec<Timing>> {
         };
         let (end, render_end) = match (&task.end, &task.duration) {
             (Some(date), None) => {
-                let end = parse_date(date)?;
+                let end = format.timestamp(date)?;
                 (end, end)
             }
-            (None, Some(duration)) => calendar.extend(start, duration_end(start, duration)?)?,
+            (None, Some(duration)) => calendar
+                .extend_timestamp(start, duration_end(start, duration, format.has_date())?)?,
             _ => bail!("Gantt task needs exactly one end date or duration"),
         };
         ensure!(
-            end >= start && end - start <= MAX_SPAN && end <= days_from_civil(9999, 12, 31),
+            end >= start && end - start <= MAX_SPAN_MS && end <= time::last_timestamp(),
             "invalid or excessive Gantt date range"
         );
         timings[i] = Timing {
@@ -293,13 +209,81 @@ pub(crate) fn schedule(graph: &Graph) -> Result<Vec<Timing>> {
     ensure!(visited == tasks.len(), "cyclic Gantt dependencies");
     let first = timings.iter().map(|t| t.start).min().unwrap();
     let last = timings.iter().map(|t| t.end).max().unwrap();
-    ensure!(last - first <= MAX_SPAN, "Gantt chart exceeds span limit");
+    ensure!(
+        last - first <= MAX_SPAN_MS,
+        "Gantt chart exceeds span limit"
+    );
     Ok(timings)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use time::format_timestamp;
+
+    fn moments(source: &str) -> Vec<Timing> {
+        let graph = crate::parse_mermaid_strict(source).unwrap().graph;
+        schedule(&graph).unwrap()
+    }
+
+    #[test]
+    fn sub_day_dependencies_explicit_ends_and_overnight_durations() {
+        use time::{HOUR, MINUTE};
+        let result = moments(
+            "gantt\ndateFormat HH:mm\nBuild: a, 09:00, 1.5h\nCheck: after a, 15m\nEnd: milestone, 0ms\nParallel: 09:15, 10:00\nOvernight: 23:30, 90m",
+        );
+        assert_eq!(
+            (result[0].start, result[0].end),
+            (9 * HOUR, 10 * HOUR + 30 * MINUTE)
+        );
+        assert_eq!(result[1].end, 10 * HOUR + 45 * MINUTE);
+        assert_eq!(result[2].end, result[1].end);
+        assert_eq!(result[3].end, 10 * HOUR);
+        assert_eq!(result[4].end, DAY + HOUR);
+        let deferred = moments("gantt\nA: 09:00, 30m\ndateFormat HH:mm");
+        assert_eq!(deferred[0].end, 9 * HOUR + 30 * MINUTE);
+    }
+
+    #[test]
+    fn dated_times_cross_midnight_leap_days_and_exclusions_without_losing_clock_time() {
+        let source = "gantt\ndateFormat YYYY-MM-DD HH:mm:ss.SSS\nA: 2024-02-28 23:59:59.999, 1ms\nB: 2024-02-29 12:30:00.125, 1y\nC: 2024-01-31 23:45:12.250, 1M";
+        let result = moments(source);
+        let format = |t| format_timestamp(t, "%Y-%m-%d %H:%M:%S.%L", true).unwrap();
+        assert_eq!(format(result[0].end), "2024-02-29 00:00:00.000");
+        assert_eq!(format(result[1].end), "2025-02-28 12:30:00.125");
+        assert_eq!(format(result[2].end), "2024-02-29 23:45:12.250");
+        let result = moments(
+            "gantt\ndateFormat YYYY-MM-DD HH:mm\nexcludes weekends\nA: a, 2026-01-02 16:30, 25h\nB: after a, 30m",
+        );
+        assert_eq!(format(result[0].end), "2026-01-05 17:30:00.000");
+        assert_eq!(format(result[0].render_end), "2026-01-03 17:30:00.000");
+        assert_eq!(format(result[1].end), "2026-01-05 18:00:00.000");
+    }
+
+    #[test]
+    fn millisecond_chains_are_exact_and_invalid_sub_day_schedules_keep_source() {
+        let mut source =
+            "gantt\ndateFormat YYYY-MM-DD HH:mm:ss.SSS\nA: a0, 9999-01-01 12:00:00.001, 1ms\n"
+                .to_string();
+        for i in 1..512 {
+            source.push_str(&format!("Task {i}: a{i}, after a{}, 1ms\n", i - 1));
+        }
+        let result = moments(&source);
+        assert_eq!(result[511].end - result[0].start, 512);
+        for source in [
+            "gantt\ndateFormat HH:mm\nA: 23:00, 00:30",
+            "gantt\ndateFormat HH:mm\nexcludes weekends\nA: 09:00, 1h",
+            "gantt\ndateFormat HH:mm\nA: 09:00, 1M",
+            "gantt\ndateFormat HH:mm\naxisFormat %Y\nA: 09:00, 1h",
+            "gantt\ndateFormat YYYY-MM-DD HH:mm:ss.SSS\nA: 9999-12-31 23:59:59.999, 1ms",
+            "gantt\ndateFormat HH:mm\nA: 09:00, 3162240000001ms",
+        ] {
+            assert!(
+                crate::parse_mermaid_strict(source).is_err(),
+                "accepted {source}"
+            );
+        }
+    }
 
     fn dates(source: &str) -> Vec<(String, String, String)> {
         let graph = crate::parse_mermaid_strict(source).unwrap().graph;
@@ -307,7 +291,7 @@ mod tests {
             .unwrap()
             .iter()
             .map(|t| {
-                let date = |d| format_date(d, "%Y-%m-%d").unwrap();
+                let date = |d| format_timestamp(d, "%Y-%m-%d", true).unwrap();
                 (date(t.start), date(t.end), date(t.render_end))
             })
             .collect()
@@ -377,7 +361,12 @@ mod tests {
             "9999-12-31",
         ] {
             assert_eq!(
-                format_date(parse_date(value).unwrap(), "%Y-%m-%d").unwrap(),
+                format_timestamp(
+                    i64::from(parse_date(value).unwrap()) * DAY,
+                    "%Y-%m-%d",
+                    true
+                )
+                .unwrap(),
                 value
             );
         }
@@ -395,15 +384,15 @@ mod tests {
             "A: after missing, 1d",
             "A: a, 2026-01-01, 1d\nB: a, 2026-01-01, 1d",
             "A: Build, 2026-01-01, 1d\nB: after build, 1d",
-            "A: 2026-01-01, 30m",
-            "A: 2026-01-01, 24h",
+            "A: 2026-01-01, 30q",
+            "A: 2026-01-01, NaNh",
             "A: 2026-01-01, 1.5d",
             "A: 2026-01-01, 1dX",
             "A: 2026-01-01, 999999999999999999d",
             "A: 2026-01-01, 36601d",
             "A: 2026-01-01, 99999999y",
             "dateFormat DD-MM-YYYY\nA: 2026-01-01, 1d",
-            "axisFormat %H:%M\nA: 2026-01-01, 1d",
+            "axisFormat %Z\nA: 2026-01-01, 1d",
             "tickInterval 1day\nA: 2026-01-01, 1d",
             "includes 2026-01-01\nA: 2026-01-01, 1d",
             "todayMarker stroke:red\nA: 2026-01-01, 1d",

@@ -401,8 +401,8 @@ pub fn validate_layout_invariants(layout: &Layout) -> Result<(), Vec<LayoutInvar
                 check_text_block(&mut errors, "gantt.title", title);
             }
             for (path, value) in [
-                ("gantt.time_start", gantt.time_start),
-                ("gantt.time_end", gantt.time_end),
+                ("gantt.time_start", gantt.time_start as f32),
+                ("gantt.time_end", gantt.time_end as f32),
                 ("gantt.chart_x", gantt.chart_x),
                 ("gantt.chart_y", gantt.chart_y),
                 ("gantt.chart_width", gantt.chart_width),
@@ -427,8 +427,12 @@ pub fn validate_layout_invariants(layout: &Layout) -> Result<(), Vec<LayoutInvar
                 let path = format!("gantt.tasks[{idx}]");
                 check_rect(&mut errors, &path, task.x, task.y, task.width, task.height);
                 check_text_block(&mut errors, &format!("{path}.label"), &task.label);
-                check_finite(&mut errors, &format!("{path}.start"), task.start);
-                check_finite(&mut errors, &format!("{path}.duration"), task.duration);
+                check_finite(&mut errors, &format!("{path}.start"), task.start as f32);
+                check_finite(
+                    &mut errors,
+                    &format!("{path}.duration"),
+                    task.duration as f32,
+                );
             }
             for (idx, tick) in gantt.ticks.iter().enumerate() {
                 check_finite(&mut errors, &format!("gantt.ticks[{idx}].x"), tick.x);

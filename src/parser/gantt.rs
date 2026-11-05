@@ -1,7 +1,8 @@
 use anyhow::{Result, bail, ensure};
 
 use super::{ParseOutput, extract_frontmatter_value, preprocess_input};
-use crate::gantt::{MAX_TASKS, format_date, parse_date, schedule};
+use crate::gantt::time::{DateFormat, format_timestamp, looks_like_duration, parse_date};
+use crate::gantt::{MAX_TASKS, schedule};
 use crate::ir::{DiagramKind, Direction, Edge, GanttStatus, GanttTask, Graph, NodeShape, Subgraph};
 
 pub(super) fn parse(input: &str) -> Result<ParseOutput> {
@@ -29,11 +30,12 @@ pub(super) fn parse(input: &str) -> Result<ParseOutput> {
                 graph.gantt_title = Some(value.to_string());
             }
             "dateformat" => {
-                ensure!(value == "YYYY-MM-DD", "unsupported Gantt dateFormat");
+                DateFormat::parse(value)?;
+                graph.gantt_date_format = Some(value.to_string());
             }
             "axisformat" => {
                 ensure!(!value.is_empty(), "empty Gantt axisFormat");
-                format_date(0, value)?;
+                format_timestamp(0, value, true)?;
                 graph.gantt_axis_format = Some(value.to_string());
             }
             "todaymarker" => {
@@ -173,16 +175,14 @@ fn parse_task(label: &str, meta: &str, index: usize, section: Option<String>) ->
             ensure!(!ids.trim().is_empty(), "empty Gantt dependency");
             after = Some(ids.trim().to_string());
         } else {
-            parse_date(first)?;
             start = Some(first.to_string());
         }
     }
     let end_token = fields[0];
-    let (end, duration) = if end_token.contains('-') {
-        parse_date(end_token)?;
-        (Some(end_token.to_string()), None)
-    } else {
+    let (end, duration) = if looks_like_duration(end_token) {
         (None, Some(end_token.to_string()))
+    } else {
+        (Some(end_token.to_string()), None)
     };
     Ok(GanttTask {
         id,

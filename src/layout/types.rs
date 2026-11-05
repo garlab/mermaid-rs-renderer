@@ -611,8 +611,10 @@ pub struct GanttLayout {
     pub title: Option<TextBlock>,
     pub sections: Vec<GanttSectionLayout>,
     pub tasks: Vec<GanttTaskLayout>,
-    pub time_start: f32,
-    pub time_end: f32,
+    /// Civil days since 1970-01-01, or since anonymous day zero for clock-only input.
+    pub time_start: f64,
+    /// Same units as `time_start`; fractions preserve sub-day intervals.
+    pub time_end: f64,
     pub chart_x: f32,
     pub chart_y: f32,
     pub chart_width: f32,
@@ -646,8 +648,10 @@ pub struct GanttTaskLayout {
     pub width: f32,
     pub height: f32,
     pub color: String,
-    pub start: f32,
-    pub duration: f32,
+    /// Civil days, with the same origin as `GanttLayout::time_start`.
+    pub start: f64,
+    /// Elapsed civil days, including calendar exclusions in dependency timing.
+    pub duration: f64,
     pub status: Option<crate::ir::GanttStatus>,
 }
 

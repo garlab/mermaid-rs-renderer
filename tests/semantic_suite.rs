@@ -283,7 +283,7 @@ fn check_gantt(fixture: &str, layout: &Layout, findings: &mut Vec<Finding>) {
     // Longer tasks should render wider bars: width must be monotonic in
     // duration across the chart (a robust check that holds even when weekend
     // exclusion makes the time-to-pixel mapping piecewise).
-    let mut sized: Vec<(&f32, &f32)> = gantt
+    let mut sized: Vec<(&f64, &f32)> = gantt
         .tasks
         .iter()
         .filter(|t| t.duration > 0.5)
