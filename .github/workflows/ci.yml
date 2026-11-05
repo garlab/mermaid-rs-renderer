@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
+    branches: ['**']
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
@@ -29,6 +31,8 @@ jobs:
         run: python3 -m compileall -q scripts
       - name: Check repository documentation and tooling
         run: python3 scripts/check_repo.py
+      - name: Test release guards
+        run: python3 -m unittest discover -s .github/tests -v
       - run: cargo fmt -- --check
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo check --locked --no-default-features

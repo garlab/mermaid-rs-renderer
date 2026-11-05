@@ -132,6 +132,8 @@ def check_workflows(errors: list[str]) -> None:
     ci = read(".github/workflows/ci.yml")
     required_ci = [
         "python3 scripts/check_repo.py",
+        "workflow_call:",
+        "python3 -m unittest discover -s .github/tests -v",
         "docker://rhysd/actionlint:1.7.12",
         "shellcheck scripts/remote-cargo.sh .github/scripts/*.sh",
         "python3 -m compileall -q scripts",
@@ -147,8 +149,28 @@ def check_workflows(errors: list[str]) -> None:
     if "cargo test --all-targets --all-features" in ci:
         errors.append(".github/workflows/ci.yml: test command unintentionally includes criterion benches")
 
-    if (ROOT / ".github/workflows/release.yml").exists():
-        errors.append("fork releases are manual; the upstream publishing workflow must be absent")
+    release = read(".github/workflows/release.yml")
+    required_release = [
+        "tags: ['document-graphics-mermaid-v*']",
+        "permissions: {}",
+        "cancel-in-progress: false",
+        "github.repository == 'garlab/document-graphics-mermaid'",
+        "bash .github/scripts/check-release.sh",
+        "uses: ./.github/workflows/ci.yml",
+        "needs: [validate, verify]",
+        "environment: release",
+        "id-token: write",
+        "persist-credentials: false",
+        "bash .github/scripts/check-published.sh",
+        "if: steps.registry.outputs.published == 'false'",
+        "rust-lang/crates-io-auth-action@",
+        "cargo publish -p document-graphics-mermaid --locked --no-verify",
+    ]
+    for item in required_release:
+        if item not in release:
+            errors.append(f".github/workflows/release.yml: missing {item}")
+    if "secrets." in release:
+        errors.append(".github/workflows/release.yml: publishing must use short-lived OIDC credentials")
     if "permissions:\n  contents: read" not in ci:
         errors.append(".github/workflows/ci.yml: CI must use read-only repository permissions")
     if "cargo publish" in ci:
@@ -159,7 +181,7 @@ def check_workflows(errors: list[str]) -> None:
     package = tomllib.loads(read("Cargo.toml"))["package"]["name"]
     for command in (f"cargo publish -p {package} --dry-run --locked", f"cargo publish -p {package} --locked"):
         if command not in release_docs:
-            errors.append(f"docs/release.md: missing manual release command: {command}")
+            errors.append(f"docs/release.md: missing release command: {command}")
 
 
 def check_release_generators(errors: list[str]) -> None:

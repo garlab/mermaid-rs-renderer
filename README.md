@@ -24,19 +24,20 @@ are unchanged; large-graph edge paths may differ.
 Version `0.1.3` reduces repeated segment comparisons and allocations during
 flowchart routing without changing search policies or route quality. It also
 uses the primary text color for quadrant axis labels, improving contrast in
-custom themes. See the [routing measurements](https://github.com/garlab/mermaid-rs-renderer/blob/fork-release/docs/flowchart-routing-architecture.md#routing-comparison-cost).
+custom themes. See the [routing measurements](https://github.com/garlab/document-graphics-mermaid/blob/main/docs/flowchart-routing-architecture.md#routing-comparison-cost).
 
 Version `0.2.0` updates the public Gantt IR and validates Gantt dates and dependencies, adds calendar durations
 and weekend/holiday exclusions, supports clock and date-time formats down to
 milliseconds, preserves combined task tags, and improves
 label/grid layout. Unsupported scheduling syntax returns an error. See the
-[native Gantt contract](https://github.com/garlab/mermaid-rs-renderer/blob/fork-release/docs/gantt.md),
+[native Gantt contract](https://github.com/garlab/document-graphics-mermaid/blob/main/docs/gantt.md),
 including the changes for callers constructing Gantt IR structs directly.
 
-`master` follows upstream. Each `fix/` or `perf/` branch contains an independent contribution;
-`fork-release` combines them with fork-specific packaging. Publish this crate
-manually using the [release guide](https://github.com/garlab/mermaid-rs-renderer/blob/fork-release/docs/release.md).
-The inherited publishing workflow is removed on this branch; CI remains enabled.
+`main` is the maintained library branch, combining fixes with fork-specific
+packaging. `master` follows upstream, and each `fix/` or `perf/` branch contains an
+independent contribution. Package-prefixed version tags run the full CI suite and
+publish to crates.io using Trusted Publishing; see the
+[release guide](https://github.com/garlab/document-graphics-mermaid/blob/main/docs/release.md).
 The upstream CLI installation instructions and benchmark claims below describe
 upstream mmdr, not a separate CLI distribution from this fork.
 
@@ -448,7 +449,7 @@ For unreleased commits only:
 
 ```toml
 [dependencies]
-mermaid-rs-renderer = { package = "document-graphics-mermaid", git = "https://github.com/garlab/mermaid-rs-renderer", rev = "<commit-sha>", default-features = false }
+mermaid-rs-renderer = { package = "document-graphics-mermaid", git = "https://github.com/garlab/document-graphics-mermaid", rev = "<commit-sha>", default-features = false }
 ```
 
 ```rust
@@ -554,7 +555,7 @@ python3 scripts/bench_render.py --help  # focused end-to-end PNG benchmark optio
 For a faster optimized development build, use `cargo build --profile release-fast`.
 The regular release profile keeps fat LTO for published binaries.
 
-Release process: see [docs/release.md](https://github.com/garlab/mermaid-rs-renderer/blob/fork-release/docs/release.md).
+Release process: see [docs/release.md](https://github.com/garlab/document-graphics-mermaid/blob/main/docs/release.md).
 
 ## License
 
