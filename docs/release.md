@@ -10,6 +10,33 @@ builds, tests and packages; it does not publish crates, CLI binaries, Homebrew
 formulae or AUR packages. Publishing automation can be added if the fork becomes
 long-lived.
 
+## Version 0.2.0
+
+This release adds validated native Gantt scheduling: Gregorian dates, clock and
+date-time formats down to milliseconds, exact durations, dependencies, combined
+status tags, milestones and weekend/holiday exclusions. Invalid or unsupported
+schedules return errors so consumers can retain source. Scheduling and ticks are
+bounded; no dependency, JavaScript runtime or clock/timezone lookup is added.
+See the [Gantt contract](gantt.md) for coverage and limits.
+
+The minor version marks changes to the public Gantt IR: independent status flags,
+an explicit task end, graph date/calendar/axis fields, and `f64` layout times in
+civil-day units. Callers constructing those structs must adapt; the string-based
+parse/render entry points retain their signatures.
+
+Local release validation on 2026-11-05 (macOS, Apple Silicon) passed the full and
+minimal feature suites, embedded-font and documentation tests, all-feature
+Clippy, Rust 1.90 checks, repository checks, package verification and a publishing
+dry run. The archive contains the new time module and tests, fixture/font license
+notices, versioned dependencies and no local paths. document-graphics and both
+consumer integration paths were checked, with the GUI consumer tested in an
+isolated checkout updated to the new library version.
+
+The release remains unpublished. Push `fork-release` and wait for the platform
+CI before publishing. Publish this backend before document-graphics 0.1.7, then
+validate that library against the registry package with its local override
+removed. Create the backend tag only after successful publication, as below.
+
 ## Prepare a release
 
 1. Integrate the reviewed fix branches into `fork-release`. Keep the package
