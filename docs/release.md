@@ -41,8 +41,12 @@ and AUR distribution remain upstream concerns.
 
 This patch release updates the package's repository and homepage URLs to
 `garlab/document-graphics-mermaid` and is the first release prepared for the
-GitHub Actions workflow. It changes packaging and release automation only:
-rendering code, public APIs, dependencies and resource limits match 0.2.0.
+GitHub Actions workflow. It also fixes vertical canvas bounds for wrapped
+quadrant point labels, which can grow taller with different system fonts. The
+canvas expands above and below the grid as needed, preserving the point data
+coordinates and including the SVG label offset. A font-independent regression
+covers several font sizes with and without titles and axes. Public APIs and
+dependencies are unchanged.
 
 The workflow validates the tag against Cargo metadata and `main`, runs the full
 CI suite, then authenticates through crates.io Trusted Publishing. Existing

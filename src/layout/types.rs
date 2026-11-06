@@ -606,6 +606,10 @@ pub struct QuadrantPointLayout {
     pub color: String,
 }
 
+impl QuadrantPointLayout {
+    pub(crate) const LABEL_OFFSET_Y: f32 = 15.0;
+}
+
 #[derive(Debug, Clone)]
 pub struct GanttLayout {
     pub title: Option<TextBlock>,

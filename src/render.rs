@@ -3585,7 +3585,7 @@ fn render_quadrant(
         ));
         svg.push_str(&text_block_svg(
             point.x,
-            point.y + 15.0,
+            point.y + crate::layout::QuadrantPointLayout::LABEL_OFFSET_Y,
             &point.label,
             theme,
             config,

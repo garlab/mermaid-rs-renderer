@@ -848,6 +848,52 @@ fn quadrant_point_label_bboxes_stay_inside_canvas() {
 }
 
 #[test]
+fn quadrant_wrapped_point_labels_reserve_vertical_space() {
+    for font_size in [8.0, 14.0, 32.0] {
+        for heading in [
+            "",
+            "  title Chart\n  x-axis Low --> High\n  y-axis Low --> High\n",
+        ] {
+            let parsed = parse_mermaid(&format!(
+                "quadrantChart\n{heading}  Very long left boundary label: [0, 1]\n  Much much longer right boundary point label: [1, 0]\n"
+            ))
+            .unwrap();
+            let theme = Theme {
+                font_size,
+                ..Theme::modern()
+            };
+            // Force wrapping without depending on the machine's font database.
+            let config = LayoutConfig {
+                fast_text_metrics: true,
+                max_label_width_chars: 8,
+                ..LayoutConfig::default()
+            };
+            let layout = compute_layout(&parsed.graph, &theme, &config);
+            let DiagramData::Quadrant(quadrant) = &layout.diagram else {
+                panic!("expected quadrant");
+            };
+            for point in &quadrant.points {
+                assert!(point.label.lines.len() > 2);
+                assert!(point.x - point.label.width / 2.0 >= 0.0);
+                assert!(point.x + point.label.width / 2.0 <= layout.width);
+                assert!(
+                    point.y - point.label.height / 2.0 >= 0.0,
+                    "point y={}, label height={}, font_size={font_size}",
+                    point.y,
+                    point.label.height,
+                );
+                // SVG point labels are centered 15 units below their markers.
+                assert!(point.y + 15.0 + point.label.height / 2.0 <= layout.height);
+            }
+            assert_eq!(quadrant.points[0].x, quadrant.grid_x);
+            assert_eq!(quadrant.points[0].y, quadrant.grid_y);
+            assert_eq!(quadrant.points[1].x, quadrant.grid_x + quadrant.grid_width);
+            assert_eq!(quadrant.points[1].y, quadrant.grid_y + quadrant.grid_height);
+        }
+    }
+}
+
+#[test]
 fn xychart_category_labels_have_collision_safe_spacing_and_band() {
     let parsed = parse_mermaid("xychart-beta\n  x-axis [A very long category, Another very long category, Third very long category]\n  bar [1, 2, 3]\n").unwrap();
     let theme = Theme::modern();

@@ -35,8 +35,10 @@ including the changes for callers constructing Gantt IR structs directly.
 
 Version `0.2.1` updates the published repository metadata to
 `garlab/document-graphics-mermaid` and introduces tag-based releases through
-GitHub Actions and crates.io Trusted Publishing. Rendering behavior, APIs and
-dependencies are unchanged from `0.2.0`.
+GitHub Actions and crates.io Trusted Publishing. It also reserves vertical
+canvas space for wrapped quadrant point labels, including their SVG offset,
+while preserving the plotted coordinates. Public APIs and dependencies are
+unchanged from `0.2.0`.
 
 `main` is the maintained library branch, combining fixes with fork-specific
 packaging. `master` follows upstream, and each `fix/` or `perf/` branch contains an

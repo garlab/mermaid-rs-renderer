@@ -95,7 +95,7 @@ pub(super) fn compute_quadrant_layout(
         .unwrap_or(padding);
 
     let base_grid_x = y_axis_width + padding;
-    let grid_y = title_height + padding;
+    let base_grid_y = title_height + padding;
 
     // Measure points before fixing the canvas bounds. QuadrantPointLayout has a
     // single anchor shared by the marker and its label, so reserve any label
@@ -116,17 +116,23 @@ pub(super) fn compute_quadrant_layout(
         .collect();
 
     let base_width = base_grid_x + grid_size + padding * 2.0;
-    let left_overflow = measured_points
-        .iter()
-        .map(|(x, _, label, _)| (label.width / 2.0 - (base_grid_x + x * grid_size)).max(0.0))
-        .fold(0.0, f32::max);
+    let base_height = base_grid_y + grid_size + x_axis_height + padding;
+    let mut left_overflow = 0.0f32;
+    let mut right_overflow = 0.0f32;
+    let mut top_overflow = 0.0f32;
+    let mut bottom_overflow = 0.0f32;
+    for (x, y, label, _) in &measured_points {
+        let center_x = base_grid_x + x * grid_size;
+        let center_y = base_grid_y + (1.0 - y) * grid_size;
+        left_overflow = left_overflow.max(label.width / 2.0 - center_x);
+        right_overflow = right_overflow.max(center_x + label.width / 2.0 - base_width);
+        top_overflow = top_overflow.max(label.height / 2.0 - center_y);
+        // Also contain the SVG label, whose center is below its data marker.
+        bottom_overflow = bottom_overflow
+            .max(center_y + QuadrantPointLayout::LABEL_OFFSET_Y + label.height / 2.0 - base_height);
+    }
     let grid_x = base_grid_x + left_overflow;
-    let right_overflow = measured_points
-        .iter()
-        .map(|(x, _, label, _)| {
-            (base_grid_x + x * grid_size + label.width / 2.0 - base_width).max(0.0)
-        })
-        .fold(0.0, f32::max);
+    let grid_y = base_grid_y + top_overflow;
 
     let points: Vec<QuadrantPointLayout> = measured_points
         .into_iter()
@@ -139,7 +145,7 @@ pub(super) fn compute_quadrant_layout(
         .collect();
 
     let width = base_width + left_overflow + right_overflow;
-    let height = grid_y + grid_size + x_axis_height + padding;
+    let height = base_height + top_overflow + bottom_overflow;
 
     Layout {
         kind: graph.kind,
@@ -150,7 +156,7 @@ pub(super) fn compute_quadrant_layout(
         height,
         diagram: DiagramData::Quadrant(QuadrantLayout {
             title,
-            title_y: title_height / 2.0,
+            title_y: title_height / 2.0 + top_overflow,
             x_axis_left: x_left,
             x_axis_right: x_right,
             y_axis_bottom: y_bottom,
